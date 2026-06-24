@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "provider": "openai",
+  "maxTokens": 8000,
+  "defaultSkills": [],
+  "diff": false,
+  "hooks": {
+    "enabled": true,
+    "optimizeOnSubmit": true,
+    "injectDiff": false,
+    "minPromptLength": 80,
+    "minSavingsPercent": 5,
+    "logStats": true
+  }
+}

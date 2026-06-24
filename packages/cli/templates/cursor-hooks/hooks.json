@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "rimping hooks pre-send",
+        "timeout": 5
+      }
+    ]
+  }
+}

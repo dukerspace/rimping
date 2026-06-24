@@ -1,0 +1,30 @@
+{
+  "name": "rimping",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*", "docs"],
+  "bin": {
+    "rimping": "./packages/cli/src/index.ts"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "postbuild": "bun link rimping",
+    "postinstall": "mkdir -p node_modules/.bin && ln -sf ../../packages/cli/src/index.ts node_modules/.bin/rimping && chmod +x packages/cli/src/index.ts",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "rimping": "bun run --filter @rimping/cli start",
+    "docs:dev": "bun run --filter @rimping/docs dev",
+    "docs:build": "bun run --filter @rimping/docs build",
+    "docs:preview": "bun run --filter @rimping/docs preview"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "bun@1.2.15"
+}

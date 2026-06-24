@@ -1,0 +1,7 @@
+**/dist
+**/coverage
+**/.turbo
+**/node_modules
+apps/frontend/.react-router
+
+package.json
