@@ -1,17 +1,28 @@
 import { defineCommand } from 'citty'
 import { runDoctor, resolveInitCwd, type AgentProbeResult } from '@rimping/core'
 import consola from 'consola'
+import { checkLine, boldText, highlight, ok, padVisible, section, statusIcon, title, warn } from '../style.js'
 
 export function formatAgentLine(agent: AgentProbeResult): string {
   const icon =
-    agent.status === 'detected' ? '✓' : agent.status === 'unknown' ? '?' : '✗'
+    agent.status === 'detected'
+      ? statusIcon('ok')
+      : agent.status === 'unknown'
+        ? statusIcon('unknown')
+        : statusIcon('fail')
   const detail =
     agent.status === 'detected'
       ? agent.evidence.join(', ')
       : agent.status === 'unknown'
         ? (agent.notes ?? 'unknown')
         : 'not found'
-  return `  ${icon} ${agent.name.padEnd(16)} ${detail}`
+  const detailText =
+    agent.status === 'detected'
+      ? highlight(detail)
+      : agent.status === 'unknown'
+        ? warn(detail)
+        : highlight(detail)
+  return `  ${icon} ${padVisible(boldText(agent.name), 17)}${detailText}`
 }
 
 export const doctorCommand = defineCommand({
@@ -40,73 +51,104 @@ export const doctorCommand = defineCommand({
     }
 
     consola.log('')
-    consola.log('Rimping Doctor')
+    consola.log(title('Rimping Doctor'))
     consola.log('')
-    consola.log('AI Agents')
+    consola.log(section('AI Agents'))
     for (const agent of result.agents) {
       consola.log(formatAgentLine(agent))
     }
 
     consola.log('')
-    consola.log('Project')
+    consola.log(section('Project'))
 
     if (result.config.found && result.config.valid) {
-      consola.log(`  ✓ .rimping/config.json`)
+      consola.log(checkLine('ok', '.rimping/config.json'))
     } else if (result.config.found && result.config.valid === false) {
-      consola.log(`  ✗ .rimping/config.json — ${result.config.error}`)
+      consola.log(checkLine('fail', `.rimping/config.json — ${result.config.error}`))
     } else {
-      consola.log(`  ✗ .rimping/config.json — missing (run: rimping init)`)
+      consola.log(checkLine('fail', '.rimping/config.json — missing (run: rimping init)'))
     }
 
     if (result.skills.projectSkills > 0) {
-      consola.log(`  ✓ ${result.skills.projectSkills} agent skill(s) in ./.agents/skills/`)
+      consola.log(
+        checkLine('ok', `${result.skills.projectSkills} agent skill(s) in ./.agents/skills/`),
+      )
     } else {
-      consola.log(`  · No agent skills in ./.agents/skills/`)
+      consola.log(checkLine('neutral', 'No agent skills in ./.agents/skills/'))
     }
 
     if (result.skills.agentSkillInstalled) {
-      consola.log(`  ✓ rimping-guidelines agent skill installed`)
+      consola.log(checkLine('ok', 'rimping-guidelines agent skill installed'))
     } else {
-      consola.log(`  ✗ rimping-guidelines agent skill missing (run: rimping skills init)`)
+      consola.log(
+        checkLine('fail', 'rimping-guidelines agent skill missing (run: rimping skills init)'),
+      )
     }
 
     if (result.hooks.hooksJson) {
-      consola.log(`  ✓ .cursor/hooks.json`)
+      consola.log(checkLine('ok', '.cursor/hooks.json'))
     } else {
-      consola.log(`  · .cursor/hooks.json — not installed`)
+      consola.log(checkLine('neutral', '.cursor/hooks.json — not installed'))
     }
 
     if (result.hooks.beforeSubmitRegistered) {
-      consola.log(`  ✓ beforeSubmitPrompt hook registered`)
+      consola.log(checkLine('ok', 'beforeSubmitPrompt hook registered'))
     } else {
-      consola.log(`  ✗ beforeSubmitPrompt hook missing (run: rimping hooks init)`)
+      consola.log(checkLine('fail', 'beforeSubmitPrompt hook missing (run: rimping hooks init)'))
     }
 
     if (result.hooks.preSend) {
-      consola.log(`  ✓ pre-send hook configured (rimping hooks pre-send)`)
+      consola.log(checkLine('ok', 'pre-send hook configured (rimping hooks pre-send)'))
+    }
+
+    if (result.hooks.preShell) {
+      consola.log(checkLine('ok', 'pre-shell hook configured (rimping hooks pre-shell)'))
+    } else if (result.hooks.shellEnabled) {
+      consola.log(checkLine('fail', 'pre-shell hook missing (run: rimping hooks init --force)'))
+    }
+
+    if (result.hooks.preRead) {
+      consola.log(checkLine('ok', 'pre-read hook configured (rimping hooks pre-read)'))
+    } else if (result.hooks.readEnabled) {
+      consola.log(checkLine('fail', 'pre-read hook missing (run: rimping hooks init --force)'))
+    }
+
+    if (result.hooks.postRead) {
+      consola.log(checkLine('ok', 'post-read hook configured (rimping hooks post-read)'))
     }
 
     if (result.hooks.enabled) {
-      consola.log(`  ✓ hooks.enabled in config`)
+      consola.log(checkLine('ok', 'hooks.enabled in config'))
+    }
+
+    if (result.hooks.shellEnabled) {
+      consola.log(checkLine('ok', 'shell.enabled in config'))
+    }
+
+    if (result.hooks.readEnabled) {
+      consola.log(checkLine('ok', 'read.enabled in config'))
     }
 
     if (result.hooks.lastRun) {
       const lr = result.hooks.lastRun
       consola.log(
-        `  · last run: ${lr.originalTokens}→${lr.optimizedTokens} tokens (-${lr.savingsPercent}%, ${lr.durationMs}ms)`,
+        checkLine(
+          'neutral',
+          `last run: ${lr.originalTokens}→${lr.optimizedTokens} tokens (-${lr.savingsPercent}%, ${lr.durationMs}ms)`,
+        ),
       )
     }
 
     if (result.hooks.logStats) {
-      consola.log(`  ✓ hooks.logStats enabled (run: rimping hooks log)`)
+      consola.log(checkLine('ok', 'hooks.logStats enabled (run: rimping hooks log)'))
     }
 
     consola.log('')
-    consola.log(
+    const summary =
       `${result.summary.detectedCount} agent(s) detected` +
-        (result.summary.issues.length > 0
-          ? `, ${result.summary.issues.length} issue(s)`
-          : ''),
+      (result.summary.issues.length > 0 ? `, ${result.summary.issues.length} issue(s)` : '')
+    consola.log(
+      result.summary.issues.length > 0 ? warn(summary) : ok(summary),
     )
     consola.log('')
 

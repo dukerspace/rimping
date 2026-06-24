@@ -58,15 +58,18 @@ export interface CacheStats {
   avgSavingsPercent: number
 }
 
-export async function getCacheStats(): Promise<CacheStats> {
-  if (!existsSync(CACHE_DIR)) {
-    return { totalEntries: 0, totalSavings: 0, avgSavingsPercent: 0 }
-  }
+export interface DailyCacheStats {
+  date: string
+  entries: number
+  tokensSaved: number
+  avgSavingsPercent: number
+}
+
+async function listValidCacheEntries(): Promise<CacheEntry[]> {
+  if (!existsSync(CACHE_DIR)) return []
 
   const files = await readdir(CACHE_DIR)
-  let totalSavings = 0
-  let totalPercent = 0
-  let count = 0
+  const entries: CacheEntry[] = []
 
   for (const file of files) {
     if (!file.endsWith('.json')) continue
@@ -74,20 +77,55 @@ export async function getCacheStats(): Promise<CacheStats> {
       const content = await readFile(join(CACHE_DIR, file), 'utf-8')
       const entry: CacheEntry = JSON.parse(content)
       if (Date.now() - entry.createdAt > TTL_MS) continue
-      const { originalTokens, optimizedTokens, savingsPercent } = entry.result.stats
-      totalSavings += originalTokens - optimizedTokens
-      totalPercent += savingsPercent
-      count++
+      entries.push(entry)
     } catch {
       continue
     }
   }
 
+  return entries
+}
+
+export async function getCacheStats(): Promise<CacheStats> {
+  const entries = await listValidCacheEntries()
+  let totalSavings = 0
+  let totalPercent = 0
+
+  for (const entry of entries) {
+    const { originalTokens, optimizedTokens, savingsPercent } = entry.result.stats
+    totalSavings += originalTokens - optimizedTokens
+    totalPercent += savingsPercent
+  }
+
+  const count = entries.length
   return {
     totalEntries: count,
     totalSavings,
     avgSavingsPercent: count ? Math.round(totalPercent / count) : 0,
   }
+}
+
+export async function getCacheStatsByDate(): Promise<DailyCacheStats[]> {
+  const byDate = new Map<string, { entries: number; tokensSaved: number; totalPercent: number }>()
+
+  for (const entry of await listValidCacheEntries()) {
+    const date = new Date(entry.createdAt).toISOString().slice(0, 10)
+    const bucket = byDate.get(date) ?? { entries: 0, tokensSaved: 0, totalPercent: 0 }
+    const { originalTokens, optimizedTokens, savingsPercent } = entry.result.stats
+    bucket.entries++
+    bucket.tokensSaved += originalTokens - optimizedTokens
+    bucket.totalPercent += savingsPercent
+    byDate.set(date, bucket)
+  }
+
+  return [...byDate.entries()]
+    .map(([date, bucket]) => ({
+      date,
+      entries: bucket.entries,
+      tokensSaved: bucket.tokensSaved,
+      avgSavingsPercent: Math.round(bucket.totalPercent / bucket.entries),
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date))
 }
 
 export function getCacheDir(): string {

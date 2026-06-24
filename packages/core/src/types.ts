@@ -1,7 +1,7 @@
 export const CLI_NAME = 'rimping'
 export const CLI_VERSION = '0.1.0'
 
-export type ProviderName = 'openai' | 'claude' | 'gemini' | 'mock'
+export type ProviderName = 'openai' | 'claude' | 'gemini' | 'copilot' | 'mock'
 
 export interface Skill {
   id: string
@@ -33,6 +33,8 @@ export interface BudgetGuard {
 export interface OptimizationStats {
   originalTokens: number
   optimizedTokens: number
+  promptTokens?: number
+  contextTokens?: number
   savingsPercent: number
   strategiesApplied: string[]
   skillsUsed: string[]

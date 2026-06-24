@@ -7,6 +7,8 @@ describe('command registry', () => {
     expect(hooksCommand.subCommands?.init).toBeDefined()
     expect(hooksCommand.subCommands?.log).toBeDefined()
     expect(hooksCommand.subCommands?.['pre-send']).toBeDefined()
+    expect(hooksCommand.subCommands?.['pre-read']).toBeDefined()
+    expect(hooksCommand.subCommands?.['post-read']).toBeDefined()
   })
 
   it('registers skills subcommands', () => {

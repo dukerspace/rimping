@@ -1,5 +1,6 @@
 import type { ExplainStep } from './types.js'
 import { estimateTokens } from './tokenizer.js'
+import { stripAnsi } from './shell-output/ansi.js'
 
 export type StrategyFn = (text: string) => string
 
@@ -37,6 +38,13 @@ export const strategies: Strategy[] = [
     },
   },
   {
+    name: 'strip-ansi',
+    apply(text) {
+      const stripped = stripAnsi(text)
+      return stripped !== text ? stripped : text
+    },
+  },
+  {
     name: 'remove-filler',
     apply(text) {
       let result = text
@@ -44,6 +52,100 @@ export const strategies: Strategy[] = [
         result = result.replace(pattern, '')
       }
       return result.replace(/  +/g, ' ').replace(/ +\n/g, '\n')
+    },
+  },
+  {
+    name: 'imperative-rewrite',
+    apply(text) {
+      return text
+        .replace(/\bI need to\b/gi, '')
+        .replace(/\bI want to\b/gi, '')
+        .replace(/\bI'd like to\b/gi, '')
+        .replace(/\bCan you\b/gi, '')
+        .replace(/\bCan we\b/gi, '')
+        .replace(/  +/g, ' ')
+        .replace(/^\s+|\s+$/gm, '')
+    },
+  },
+  {
+    name: 'trim-prose-prefix',
+    apply(text) {
+      return text
+        .replace(/^(?:please\s+)?(?:help me\s+)?(?:with\s+)?/i, '')
+        .replace(/^(?:I need help\s+)?(?:fixing|debugging|designing)\s+/i, '')
+        .replace(/^\s+/, '')
+    },
+  },
+  {
+    name: 'compress-numbered-steps',
+    apply(text) {
+      const lines = text.split('\n')
+      const steps: string[] = []
+      for (const line of lines) {
+        const m = line.match(/^\s*\d+[.)]\s*(.+)$/)
+        if (m) steps.push(m[1].trim())
+      }
+      if (steps.length >= 2) {
+        const inline = steps.join('; ')
+        const without = lines.filter((l) => !/^\s*\d+[.)]\s*/.test(l)).join('\n')
+        return without ? `${without}\nSteps: ${inline}` : `Steps: ${inline}`
+      }
+
+      const inline = [...text.matchAll(/\b(\d+)\)\s*([^,;]+)/g)]
+      if (inline.length < 2) return text
+      const stepTexts = inline.map((m) => m[2].trim())
+      const stripped = text.replace(/\s*\d+\)\s*[^,;]+[,;]?\s*/g, ' ').replace(/\s+/g, ' ').trim()
+      const stepsLine = `Steps: ${stepTexts.join('; ')}`
+      return stripped ? `${stripped} ${stepsLine}` : stepsLine
+    },
+  },
+  {
+    name: 'compress-stack-trace',
+    apply(text) {
+      const compressFrames = (block: string): string => {
+        const lines = block.split('\n')
+        const out: string[] = []
+        let frameRun = 0
+        for (const line of lines) {
+          const isFrame = /^\s+at\s+/.test(line) || /^\s+in\s+/.test(line)
+          if (isFrame) {
+            frameRun++
+            if (frameRun <= 2) out.push(line)
+            continue
+          }
+          if (frameRun > 2) out.push(`    ... ${frameRun - 2} more frames`)
+          frameRun = 0
+          out.push(line)
+        }
+        if (frameRun > 2) out.push(`    ... ${frameRun - 2} more frames`)
+        return out.join('\n')
+      }
+
+      if (text.includes('```')) {
+        return text.replace(/```[\w]*\n([\s\S]*?)```/g, (_m, code) => {
+          const compressed = compressFrames(code)
+          return compressed !== code ? '```\n' + compressed.trim() + '\n```' : _m
+        })
+      }
+      return compressFrames(text)
+    },
+  },
+  {
+    name: 'collapse-test-failures',
+    apply(text) {
+      if (!/FAILED|AssertionError|panicked at/i.test(text)) return text
+      const lines = text.split('\n')
+      const out: string[] = []
+      let passCount = 0
+      for (const line of lines) {
+        if (/\.\.\.\s+ok\s*$/i.test(line) || /\bPASS\b/.test(line)) {
+          passCount++
+          continue
+        }
+        out.push(line)
+      }
+      if (passCount > 0) out.unshift(`${passCount} passing tests omitted`)
+      return out.join('\n')
     },
   },
   {

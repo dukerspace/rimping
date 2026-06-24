@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { clearSkillCache, composeSkills, loadSkills, selectSkills } from '../src/skill-engine.js'
+import { clearSkillCache, composeSkills, loadSkills, reconcileSkillsUsed, selectSkills } from '../src/skill-engine.js'
 
 const SOFTWARE_ENGINEER_SKILL = `---
 id: software-engineer
@@ -104,9 +104,38 @@ describe('skill-engine', () => {
     expect(selected[0].id).toBe('typescript-refactor')
   })
 
+  it('returns no skills when auto-detect finds nothing', async () => {
+    const skills = await loadSkills(tempDir)
+    const selected = selectSkills(skills, {
+      prompt: 'unrelated generic text',
+      autoDetect: true,
+    })
+    expect(selected).toHaveLength(0)
+  })
+
   it('returns prompt unchanged when no skills selected', () => {
     const { text, skillIds } = composeSkills([], 'please help me fix the bug')
     expect(text).toBe('please help me fix the bug')
     expect(skillIds).toHaveLength(0)
+  })
+
+  it('does not report skills that had no effect on the prompt', async () => {
+    const skills = await loadSkills(tempDir)
+    const refactor = skills.find((s) => s.id === 'typescript-refactor')
+    expect(refactor).toBeDefined()
+    const { text, skillIds } = composeSkills([refactor!], 'refactor this typescript interface')
+    expect(text).toBe('refactor this typescript interface')
+    expect(skillIds).toHaveLength(0)
+  })
+
+  it('reconcileSkillsUsed drops skills that are no longer available', async () => {
+    const skills = await loadSkills(tempDir)
+    const reconciled = await reconcileSkillsUsed(tempDir, [
+      'software-engineer',
+      'git-diff-analyzer',
+      'missing-skill',
+    ])
+    expect(reconciled).toEqual(['software-engineer'])
+    expect(skills.some((skill) => skill.id === 'software-engineer')).toBe(true)
   })
 })

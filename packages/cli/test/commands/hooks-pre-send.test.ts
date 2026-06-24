@@ -82,7 +82,13 @@ describe('runCursorPreSendHook', () => {
   it('returns original prompt on optimization error', async () => {
     await setupProject({
       version: 1,
-      hooks: { enabled: true, optimizeOnSubmit: true, minPromptLength: 10, minSavingsPercent: 0 },
+      hooks: {
+        enabled: true,
+        optimizeOnSubmit: true,
+        minPromptLength: 10,
+        minSavingsPercent: 0,
+        logStats: true,
+      },
     })
     const input = { user_message: 'please could you help me refactor this code for a long time' }
     stdinSpy = spyOn(Bun.stdin, 'text').mockResolvedValue(JSON.stringify(input))

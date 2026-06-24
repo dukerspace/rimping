@@ -14,6 +14,14 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "benchmark": "bun run benchmarks/run.ts",
+    "benchmark:tier1": "bun run benchmarks/run.ts --tier1",
+    "benchmark:tier1b": "bun run benchmarks/run.ts --tier1b",
+    "benchmark:tier2": "bun run benchmarks/run.ts --tier2",
+    "benchmark:tier2-score": "bun run benchmarks/run.ts --tier2-score --report",
+    "benchmark:tier3": "bun run benchmarks/run.ts --tier3",
+    "benchmark:report": "bun run benchmarks/run.ts --report",
+    "benchmark:test": "bun test benchmarks/test",
     "clean": "turbo run clean && rm -rf node_modules",
     "rimping": "bun run --filter @rimping/cli start",
     "docs:dev": "bun run --filter @rimping/docs dev",
@@ -21,6 +29,7 @@
     "docs:preview": "bun run --filter @rimping/docs preview"
   },
   "devDependencies": {
+    "@rimping/core": "workspace:*",
     "@types/bun": "latest",
     "prettier": "^3.5.3",
     "turbo": "^2.5.4",

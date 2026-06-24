@@ -4,16 +4,10 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { readdir, readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { findProjectRoot } from './agent-skills-init.js'
-
 let skillCache: Skill[] | null = null
 
 function getSkillDirs(cwd: string): string[] {
-  const root = findProjectRoot(cwd)
-  const bundled = join(root, 'skills')
-  const dirs = [join(cwd, 'skills'), join(homedir(), '.rimping', 'skills')]
-  if (existsSync(bundled)) dirs.push(bundled)
-  return dirs
+  return [join(cwd, 'skills'), join(homedir(), '.rimping', 'skills')]
 }
 
 function parseSkillFile(content: string, filePath: string): Skill {
@@ -96,7 +90,7 @@ export function selectSkills(
     const detected = autoDetectSkills(options.prompt, allSkills)
     if (detected.length) return detected
   }
-  return allSkills.filter((s) => s.id === 'software-engineer').slice(0, 1)
+  return []
 }
 
 const FILLER_IN_SKILL = [
@@ -112,33 +106,44 @@ const FILLER_IN_SKILL = [
   /\bkindly\b/gi,
 ]
 
-function applySkillTransforms(prompt: string, skills: Skill[]): string {
-  let text = prompt
-  for (const pattern of FILLER_IN_SKILL) {
-    text = text.replace(pattern, '')
-  }
-  text = text.replace(/  +/g, ' ').replace(/^\s+|\s+$/g, '').trim()
-
-  for (const skill of skills) {
-    const transformation = `${skill.transformation} ${skill.rules.join(' ')}`
-    if (/imperative/i.test(transformation)) {
-      text = text.replace(/\bI need to\b/gi, '').replace(/\bI want to\b/gi, '')
-    }
-    if (/drop pleasantries|filler/i.test(transformation)) {
-      for (const pattern of FILLER_IN_SKILL) {
-        text = text.replace(pattern, '')
-      }
-    }
-    if (/terse|compress|trim/i.test(transformation)) {
-      text = text.replace(/\bin order to\b/gi, 'to').replace(/\bfor the purpose of\b/gi, 'to')
-    }
-  }
-
+function normalizeSkillText(text: string): string {
   return text.replace(/  +/g, ' ').replace(/^\s+|\s+$/g, '').trim()
+}
+
+function applySkillTransform(prompt: string, skill: Skill): string {
+  let text = prompt
+  const transformation = `${skill.transformation} ${skill.rules.join(' ')}`
+  if (/imperative/i.test(transformation)) {
+    text = text.replace(/\bI need to\b/gi, '').replace(/\bI want to\b/gi, '')
+  }
+  if (/drop pleasantries|filler/i.test(transformation)) {
+    for (const pattern of FILLER_IN_SKILL) {
+      text = text.replace(pattern, '')
+    }
+  }
+  if (/terse|compress|trim/i.test(transformation)) {
+    text = text.replace(/\bin order to\b/gi, 'to').replace(/\bfor the purpose of\b/gi, 'to')
+  }
+  return normalizeSkillText(text)
 }
 
 export function composeSkills(skills: Skill[], prompt: string): { text: string; skillIds: string[] } {
   if (!skills.length) return { text: prompt, skillIds: [] }
-  const transformed = applySkillTransforms(prompt, skills)
-  return { text: transformed, skillIds: skills.map((s) => s.id) }
+
+  const skillIds: string[] = []
+  let text = prompt
+
+  for (const skill of skills) {
+    const before = text
+    text = applySkillTransform(text, skill)
+    if (text !== before) skillIds.push(skill.id)
+  }
+
+  return { text, skillIds }
+}
+
+export async function reconcileSkillsUsed(cwd: string, skillsUsed: string[]): Promise<string[]> {
+  if (!skillsUsed.length) return skillsUsed
+  const available = new Set((await loadSkills(cwd)).map((skill) => skill.id))
+  return skillsUsed.filter((id) => available.has(id))
 }

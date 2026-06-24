@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { getConfigPath, loadConfig, type AgentId } from './config.js'
 import { checkCursorHooks } from './hooks-init.js'
 import { loadLastResult } from './pipeline.js'
-import { mergeHooksConfig } from './resolve-options.js'
+import { mergeHooksConfig, mergeReadConfig, mergeShellConfig } from './resolve-options.js'
 
 export type AgentStatus = 'detected' | 'not_found' | 'unknown'
 
@@ -24,8 +24,15 @@ export interface DoctorResult {
   hooks: {
     hooksJson: boolean
     preSend: boolean
+    preShell: boolean
+    preRead: boolean
+    postRead: boolean
     beforeSubmitRegistered: boolean
+    preToolUseRegistered: boolean
+    postToolUseRegistered: boolean
     enabled: boolean
+    shellEnabled: boolean
+    readEnabled: boolean
     logStats: boolean
     lastRun?: { originalTokens: number; optimizedTokens: number; savingsPercent: number; durationMs: number }
   }
@@ -76,20 +83,21 @@ const AGENT_PROBES: AgentProbe[] = [
     id: 'cursor',
     name: 'Cursor',
     projectPaths: (cwd) => ['.cursor/', '.cursor/hooks.json'].map((p) => join(cwd, p)),
-    globalPaths: () => ['~/.cursor/'],
+    globalPaths: () => ['~/.cursor/', '~/.cursor/hooks.json'],
   },
   {
     id: 'claude',
     name: 'Claude Code',
     projectPaths: (cwd) =>
-      ['.claude/', 'CLAUDE.md', '.agents/'].map((p) => join(cwd, p)),
-    globalPaths: () => ['~/.claude/'],
+      ['.claude/', '.claude/settings.local.json', 'CLAUDE.md', '.agents/'].map((p) => join(cwd, p)),
+    globalPaths: () => ['~/.claude/', '~/.claude/settings.json'],
     cli: { bin: 'claude' },
   },
   {
     id: 'codex',
     name: 'OpenAI Codex',
-    globalPaths: () => ['~/.codex/'],
+    projectPaths: (cwd) => [join(cwd, '.codex/hooks.json')],
+    globalPaths: () => ['~/.codex/', '~/.codex/hooks.json'],
     cli: { bin: 'codex' },
   },
   {
@@ -100,13 +108,14 @@ const AGENT_PROBES: AgentProbe[] = [
   {
     id: 'gemini',
     name: 'Gemini CLI',
-    projectPaths: (cwd) => [join(cwd, '.gemini/')],
-    globalPaths: () => ['~/.gemini/'],
+    projectPaths: (cwd) => [join(cwd, '.gemini/'), join(cwd, '.gemini/settings.json')],
+    globalPaths: () => ['~/.gemini/', '~/.gemini/settings.json'],
     cli: { bin: 'gemini' },
   },
   {
     id: 'antigravity',
     name: 'Antigravity',
+    projectPaths: (cwd) => [join(cwd, '.agents/hooks.json')],
     globalPaths: () => {
       const paths = ['~/.antigravity/', '~/.antigravity-ide/']
       if (platform() === 'darwin') {
@@ -121,13 +130,20 @@ const AGENT_PROBES: AgentProbe[] = [
   {
     id: 'windsurf',
     name: 'Windsurf',
-    projectPaths: (cwd) => [join(cwd, '.windsurf/')],
+    projectPaths: (cwd) => [join(cwd, '.windsurf/'), join(cwd, '.windsurf/hooks.json')],
     globalPaths: () => ['~/.codeium/windsurf/'],
   },
   {
     id: 'copilot',
     name: 'GitHub Copilot',
-    projectPaths: (cwd) => [join(cwd, '.github/copilot-instructions.md')],
+    projectPaths: (cwd) =>
+      [
+        '.copilot/',
+        '.github/copilot-instructions.md',
+        '.github/copilot/',
+        '.github/hooks/lek-optimize.json',
+      ].map((p) => join(cwd, p)),
+    globalPaths: () => ['~/.copilot/'],
     cli: { bin: 'gh', versionArgs: ['copilot', '--version'] },
   },
   {
@@ -154,6 +170,29 @@ const AGENT_PROBES: AgentProbe[] = [
 ]
 
 export const KNOWN_AGENT_IDS: AgentId[] = AGENT_PROBES.map((probe) => probe.id)
+
+const AGENT_NAME_BY_ID = Object.fromEntries(AGENT_PROBES.map((probe) => [probe.id, probe.name])) as Record<
+  AgentId,
+  string
+>
+
+/** Popular AI coding agents surfaced in hook logs and doctor output. */
+export const POPULAR_AI_AGENT_IDS = [
+  'cursor',
+  'copilot',
+  'claude',
+  'chatgpt',
+  'gemini',
+] as const satisfies readonly AgentId[]
+
+export const POPULAR_AI_AGENTS = POPULAR_AI_AGENT_IDS.map((id) => ({
+  id,
+  name: AGENT_NAME_BY_ID[id],
+}))
+
+export function getAgentName(id: AgentId): string {
+  return AGENT_NAME_BY_ID[id]
+}
 
 function formatEvidence(paths: string[], cwd: string): string[] {
   return paths.map((p) => {
@@ -263,7 +302,9 @@ export async function runDoctor(cwd: string): Promise<DoctorResult> {
   const agentSkillInstalled = await hasAgentSkill(cwd)
   const hookStatus = await checkCursorHooks(cwd)
   const loadedConfig = configFound && configValid ? await loadConfig(cwd) : null
-  const hooksConfig = mergeHooksConfig(loadedConfig)
+  const hooksConfig = mergeHooksConfig(loadedConfig, 'cursor')
+  const shellConfig = mergeShellConfig(loadedConfig)
+  const readConfig = mergeReadConfig(loadedConfig)
   const lastRun = await loadLastResult()
 
   if (!agentSkillInstalled) {
@@ -277,6 +318,15 @@ export async function runDoctor(cwd: string): Promise<DoctorResult> {
     }
     if (hooksConfig.enabled && !hookStatus.preSend) {
       issues.push('hooks.enabled is true but pre-send hook is missing (run: rimping hooks init)')
+    }
+    if (shellConfig.enabled && !hookStatus.preShell) {
+      issues.push('shell.enabled is true but pre-shell hook is missing (run: rimping hooks init --force)')
+    }
+    if (readConfig.enabled && readConfig.autoLimit && !hookStatus.preRead) {
+      issues.push('read.autoLimit is true but pre-read hook is missing (run: rimping hooks init --force)')
+    }
+    if (readConfig.enabled && readConfig.compressOutput && !hookStatus.postRead) {
+      issues.push('read.compressOutput is true but post-read hook is missing (run: rimping hooks init --force)')
     }
   }
 
@@ -294,6 +344,8 @@ export async function runDoctor(cwd: string): Promise<DoctorResult> {
     hooks: {
       ...hookStatus,
       enabled: hooksConfig.enabled,
+      shellEnabled: shellConfig.enabled,
+      readEnabled: readConfig.enabled,
       logStats: hooksConfig.logStats,
       lastRun: lastRun
         ? {
