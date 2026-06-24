@@ -27,19 +27,21 @@ bun run rimping -- <command>
 
 ## Getting Started
 
-### 1. Initialize project config
+### 1. Initialize project config and hooks
 
 ```bash
 rimping init
 ```
 
-Creates `.rimping/config.json` with defaults and auto-detected AI agents.
+Creates `.rimping/config.json` with defaults and auto-detected AI agents, then scaffolds hook files for supported agents (Cursor, Claude Code, Codex, Gemini, Copilot, Windsurf, Antigravity). Restart your agents after setup.
 
 | Flag | Description |
 |------|-------------|
-| `--force` | Overwrite existing config |
+| `--force` | Overwrite existing config and hook files |
 | `--dry-run` | Preview without writing files |
 | `--no-detect` | Skip agent detection |
+| `--no-hooks` | Create config only — skip hook scaffolding |
+| `-g`, `--global` | Write `~/.rimping/config.json` and global hook paths instead of project-local |
 | `--json` | Output result as JSON |
 | `--cwd <path>` | Target directory (default: current) |
 
@@ -49,7 +51,7 @@ Creates `.rimping/config.json` with defaults and auto-detected AI agents.
 rimping doctor
 ```
 
-Detects installed AI coding agents and validates your Rimping setup. Exits with code `1` when issues are found (missing config, invalid config, missing agent skill).
+Detects installed AI coding agents and validates your Rimping setup: config, agent skills, and Cursor hook registration (pre-send, pre-shell, pre-read, post-read). Exits with code `1` when issues are found.
 
 | Flag | Description |
 |------|-------------|
@@ -64,15 +66,29 @@ rimping skills init
 
 Creates `.agents/skills/rimping-guidelines/SKILL.md` — engineering discipline for AI assistants (think first, minimal solutions, surgical changes, verify with tests).
 
-### 4. Set up Cursor hooks (optional)
+### 4. Re-run hook setup (optional)
+
+If you used `--no-hooks` or need to refresh hook files without touching config:
 
 ```bash
-rimping hooks init
+rimping hooks init          # project-local hooks
+rimping hooks init -g       # global hooks (~/.cursor, ~/.claude, etc.)
 ```
 
-Installs a `beforeSubmitPrompt` hook that optimizes prompts before they reach the agent. Restart Cursor after setup.
-
 ## Commands
+
+| Command | Description |
+|---------|-------------|
+| `init` | Create config and scaffold agent hooks |
+| `doctor` | Check agents, config, and hook registration |
+| `optimize` | Run the optimization pipeline on a prompt |
+| `stats` | Cache stats, hook run history, last optimization |
+| `explain` | Pipeline breakdown from the last `optimize` run |
+| `skills init` | Install `rimping-guidelines` agent skill |
+| `hooks init` | Scaffold agent hook files only |
+| `hooks log` | View or clear `.rimping/hooks.log` |
+| `shell run` | Run a command and print compressed output |
+| `update` | Check for and install CLI updates |
 
 ### `optimize [prompt]`
 
@@ -86,7 +102,7 @@ rimping optimize "please could you help me refactor this typescript code"
 rimping optimize --diff "review my changes"
 
 # Use specific skills
-rimping optimize --skills typescript-refactor,git-diff-analyzer "refactor types"
+rimping optimize --skills my-skill "refactor types"
 
 # Set token budget
 rimping optimize --max-tokens 4000 "long prompt..."
@@ -106,19 +122,22 @@ rimping optimize --explain "verbose prompt with filler words"
 | `--diff` | Inject git diff context (modified hunks only) |
 | `--skills <ids>` | Comma-separated skill IDs |
 | `--max-tokens <n>` | Token budget cap |
-| `--provider <name>` | Output format: `openai`, `claude`, `gemini`, `mock` |
+| `--provider <name>` | Output format: `openai`, `claude`, `gemini`, `copilot`, `mock` |
 | `--stdin` | Read prompt from stdin |
 | `--json` | Output full JSON result |
 | `--no-cache` | Bypass prompt cache |
 | `--explain` | Print pipeline steps to stderr |
+| `--cwd <path>` | Project root for config and skills (default: auto-detect) |
 
 ### `stats`
 
-Show cache statistics and a summary of the last optimization run.
+Show cache statistics, per-day cache and hook summaries, and details from the last optimization run.
 
 ```bash
 rimping stats
 ```
+
+Reports: cache directory, total entries, token savings, daily breakdowns, and last run (skills, strategies, budget guard).
 
 ### `explain`
 
@@ -130,7 +149,7 @@ rimping explain
 
 ### `skills init`
 
-Initialize the bundled `rimping-guidelines` agent skill.
+Initialize the `rimping-guidelines` agent skill template in `.agents/skills/`.
 
 | Flag | Description |
 |------|-------------|
@@ -141,23 +160,93 @@ Initialize the bundled `rimping-guidelines` agent skill.
 
 ### `hooks init`
 
-Initialize Cursor `beforeSubmitPrompt` hook files.
+Scaffold agent hook files for detected tools. Each template wires four hook entry points:
+
+| Hook command | When it runs |
+|--------------|--------------|
+| `rimping hooks pre-send` | Before prompt submit — runs the optimize pipeline |
+| `rimping hooks pre-shell` | Before shell/bash tool use — rewrites to `rimping shell run` |
+| `rimping hooks pre-read` | Before read tool use — injects line limits |
+| `rimping hooks post-read` | After read tool use — compresses file content |
+
+Supported agents and hook file paths:
+
+| Agent | Project path | Global path (`-g`) |
+|-------|--------------|-------------------|
+| Cursor | `.cursor/hooks.json` | `~/.cursor/hooks.json` |
+| Claude Code | `.claude/settings.local.json` | `~/.claude/settings.json` |
+| OpenAI Codex | `.codex/hooks.json` | `~/.codex/hooks.json` |
+| Gemini CLI | `.gemini/settings.json` | `~/.gemini/settings.json` |
+| GitHub Copilot | `.github/hooks/lek-optimize.json` | — |
+| Windsurf | `.windsurf/hooks.json` | — |
+| Antigravity | `.agents/hooks.json` | — |
 
 | Flag | Description |
 |------|-------------|
 | `--force` | Overwrite existing hook files |
 | `--dry-run` | Preview without writing |
+| `-g`, `--global` | Write global hook paths instead of project-local |
 | `--json` | Output as JSON |
 | `--cwd <path>` | Target directory |
 
+### `hooks log`
+
+View detailed hook run logs. Requires `hooks.logStats: true` in config.
+
+```bash
+rimping hooks log
+rimping hooks log --last 20
+rimping hooks log --json
+rimping hooks log --clear
+```
+
+| Flag | Description |
+|------|-------------|
+| `--last <n>` | Number of recent entries (default: `10`) |
+| `--json` | Print raw JSON log entries (one per line) |
+| `--clear` | Clear `.rimping/hooks.log` |
+
+### `shell run <command>`
+
+Run a shell command and print compressed output (for agent context).
+
+```bash
+rimping shell run "git status"
+rimping shell run "cargo test" --explain
+cat output.txt | rimping shell run "cargo test" --stdin
+```
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Full JSON result |
+| `--explain` | Print compression stats on stderr |
+| `--max-tokens <n>` | Token budget for compressed output |
+| `--stdin` | Compress stdin instead of running command |
+| `--cwd <path>` | Working directory |
+
+### `update`
+
+Check for and install the latest rimping CLI from GitHub or npm.
+
+```bash
+rimping update --check    # compare versions only
+rimping update            # install latest
+rimping update --dry-run  # show install command without running
+```
+
+| Flag | Description |
+|------|-------------|
+| `-c`, `--check` | Only check whether a newer version is available |
+| `--dry-run` | Show the update command without running it |
+| `--json` | Output result as JSON |
+
 ## Project Configuration
 
-Config file: `.rimping/config.json`
+Config file: `.rimping/config.json` (project) or `~/.rimping/config.json` (global, via `rimping init -g`). At runtime, project config is merged over global (`loadConfig`).
 
 ```json
 {
   "version": 1,
-  "provider": "openai",
   "maxTokens": 8000,
   "defaultSkills": [],
   "diff": false,
@@ -167,11 +256,25 @@ Config file: `.rimping/config.json`
     "injectDiff": false,
     "minPromptLength": 80,
     "minSavingsPercent": 5,
-    "logStats": true
+    "logStats": false
+  },
+  "shell": {
+    "enabled": true,
+    "minSavingsPercent": 10,
+    "maxTokens": 4000
+  },
+  "read": {
+    "enabled": true,
+    "autoLimit": true,
+    "compressOutput": false,
+    "maxLines": 200,
+    "minSavingsPercent": 10,
+    "maxTokens": 4000
   },
   "agents": {
     "cursor": { "enabled": true },
-    "claude": { "enabled": true }
+    "claude": { "enabled": true },
+    "chatgpt": { "enabled": false }
   }
 }
 ```
@@ -179,14 +282,45 @@ Config file: `.rimping/config.json`
 | Field | Description |
 |-------|-------------|
 | `version` | Config schema version (currently `1`) |
-| `provider` | Default provider adapter: `openai`, `claude`, `gemini`, `mock` |
+| `provider` | Default provider adapter: `openai`, `claude`, `gemini`, `copilot`, `mock` |
 | `maxTokens` | Default token budget cap |
 | `defaultSkills` | Skill IDs applied by default on every optimize |
 | `diff` | Include git diff context by default |
-| `hooks` | Cursor hook behavior (see below) |
-| `agents` | Detected AI agents enabled for this project |
+| `hooks` | Default hook behavior for all agents (see below) |
+| `shell` | Shell output compression settings |
+| `read` | File read compression settings |
+| `agents` | Per-agent enable flags and optional hook overrides |
+
+### Agents config
+
+Top-level `hooks` applies to every agent. Each `agents.<id>` entry only needs an `enabled` flag in most cases — you do not repeat hook fields per agent unless you want an override.
+
+| Field | Description |
+|-------|-------------|
+| `enabled` | Turn this agent's hooks on or off. When `false`, hook optimization is disabled for that agent even if top-level `hooks.enabled` is `true`. |
+| `hooks` | Optional. Only include fields that differ from top-level `hooks` for this agent. |
+
+Known agent IDs: `cursor`, `claude`, `codex`, `chatgpt`, `gemini`, `antigravity`, `windsurf`, `copilot`, `continue`, `cline`, `aider`.
+
+`rimping init` writes a compact config: detected agents are `enabled: true`, others `enabled: false`. Project init lists all known agents; global init (`-g`) lists only detected agents. Re-running `init` strips redundant per-agent hook fields that match the top-level defaults.
+
+Override example — stricter prompt threshold for Cursor only:
+
+```json
+{
+  "hooks": { "minPromptLength": 80 },
+  "agents": {
+    "cursor": { "enabled": true, "hooks": { "minPromptLength": 120 } },
+    "claude": { "enabled": true }
+  }
+}
+```
+
+At runtime, `mergeHooksConfig(config, agentId)` merges top-level `hooks`, then `agents.<id>.hooks`, then applies `agents.<id>.enabled`.
 
 ### Hooks config
+
+These fields live under top-level `hooks` and serve as defaults for every agent unless overridden in `agents.<id>.hooks`.
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -195,29 +329,41 @@ Config file: `.rimping/config.json`
 | `injectDiff` | `false` | Include git diff when optimizing via hook |
 | `minPromptLength` | `80` | Skip optimization for shorter prompts |
 | `minSavingsPercent` | `5` | Skip if savings below this threshold |
-| `logStats` | `true` | Log optimization stats from the hook |
+| `logStats` | `false` | Append optimization stats to `.rimping/hooks.log` |
 
-The hook **fails open** — if optimization fails, the original prompt is sent unchanged.
+All hooks **fail open** — if optimization or compression fails, the original input is passed through unchanged.
+
+### Shell config
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `true` | Rewrite shell/bash tool calls via `pre-shell` hook |
+| `minSavingsPercent` | `10` | Skip compression if savings below threshold |
+| `maxTokens` | `4000` | Token budget for compressed shell output |
+
+### Read config
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `true` | Enable read tool interception via `pre-read` / `post-read` hooks |
+| `autoLimit` | `true` | Inject line limits before the agent reads large files |
+| `compressOutput` | `false` | Compress file content after read (strip comments, trim lines) |
+| `maxLines` | `200` | Default line cap for `autoLimit` |
+| `minSavingsPercent` | `10` | Skip post-read compression if savings below threshold |
+| `maxTokens` | `4000` | Token budget for compressed read output |
 
 ## Prompt Skills
 
-Prompt skills are Markdown files with YAML frontmatter. Rimping loads them from:
+Prompt skills are user-authored Markdown files with YAML frontmatter. Rimping does not ship built-in prompt skills — create your own per project or in your user directory.
+
+Rimping loads prompt skills from:
 
 1. `./skills/` (project root)
 2. `~/.rimping/skills/` (user overrides — same `id` wins over project)
 
-### Bundled skills
+**Selection order:** explicit `--skills` or `defaultSkills` in config → auto-detection from `triggers` → no skills. If nothing matches, the pipeline continues without skill transforms.
 
-| Skill ID | Focus |
-|----------|-------|
-| `software-engineer` | General development prompt compression |
-| `typescript-refactor` | TypeScript / type-preserving compression |
-| `backend-architecture` | API and service context trimming |
-| `git-diff-analyzer` | Diff-focused context reduction |
-
-Skills are auto-detected from prompt keywords when `--skills` is not specified.
-
-### Authoring a custom skill
+### Authoring a skill
 
 Create `skills/my-skill.md`:
 
@@ -265,22 +411,32 @@ Run `rimping skills init` to install `rimping-guidelines`, which encodes enginee
 | Agent | Detection signals |
 |-------|-------------------|
 | Cursor | `.cursor/`, `~/.cursor/` |
-| Claude Code | `.claude/`, `CLAUDE.md`, `claude` CLI |
-| OpenAI Codex | `~/.codex/`, `codex` CLI |
+| Claude Code | `.claude/`, `.agents/`, `CLAUDE.md`, `claude` CLI |
+| OpenAI Codex | `.codex/hooks.json`, `~/.codex/`, `codex` CLI |
 | ChatGPT | Not locally detectable |
-| Gemini CLI | `.gemini/`, `gemini` CLI |
-| Antigravity | `~/.antigravity/`, `~/.antigravity-ide/` |
+| Gemini CLI | `.gemini/`, `~/.gemini/`, `gemini` CLI |
+| Antigravity | `.agents/hooks.json`, `~/.antigravity/`, `~/.antigravity-ide/` |
 | Windsurf | `.windsurf/`, `~/.codeium/windsurf/` |
-| GitHub Copilot | `.github/copilot-instructions.md`, `gh copilot` |
+| GitHub Copilot | `.copilot/`, `.github/copilot-instructions.md`, `gh copilot` |
 | Continue | `.continue/`, `~/.continue/` |
 | Cline | `.cline/` |
-| Aider | `.aider.conf.yml`, `aider` CLI |
+| Aider | `.aider.conf.yml`, `~/.aider/`, `aider` CLI |
+
+## Storage & Logs
+
+| Path | Purpose |
+|------|---------|
+| `.rimping/config.json` | Project config |
+| `~/.rimping/config.json` | Global config (`rimping init -g`) |
+| `~/.rimping/cache/` | Optimized prompt cache (24-hour TTL) |
+| `~/.rimping/last-run.json` | Last `optimize` result for `stats` / `explain` |
+| `.rimping/hooks.log` | Per-project hook run log (`hooks.logStats: true`) |
 
 ## Cache
 
 Optimized prompts are cached in `~/.rimping/cache/` with a 24-hour TTL. Use `--no-cache` to bypass.
 
-View cache stats with `rimping stats`.
+View cache and hook stats with `rimping stats`. View per-run hook details with `rimping hooks log`.
 
 ## Programmatic Usage
 
@@ -307,6 +463,9 @@ const { text, optimized, stats } = await preSend('my prompt')
 |---------|----------|
 | `doctor` reports missing config | Run `rimping init` |
 | No token savings | Prompt may be too short; try a longer, wordier prompt |
-| Hook not optimizing | Check `hooks.enabled` and `minPromptLength` in config |
+| Hook not optimizing | Check `hooks.enabled` and `minPromptLength`; run `rimping doctor` |
+| No hook log entries | Set `hooks.logStats: true` in config, then submit a prompt |
+| Shell output not compressed | Check `shell.enabled`; verify `pre-shell` hook is registered (`rimping doctor`) |
+| Read output not compressed | Check `read.enabled` and `read.compressOutput`; verify `post-read` hook is registered |
 | Git diff not injected | Ensure you are in a git repo; use `--diff` or set `diff: true` |
-| Skill not applied | Check triggers match your prompt, or pass `--skills <id>` explicitly |
+| Skill not applied | Create a skill in `skills/` or `~/.rimping/skills/`, check triggers match your prompt, or pass `--skills <id>` |

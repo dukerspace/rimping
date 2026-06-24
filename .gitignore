@@ -5,6 +5,18 @@ dist
 .DS_Store
 .env
 .env.*
-.rimping/hooks.log
+
+# Local rimping config and logs
+.rimping/
+
+# Agent hook files scaffolded by `rimping init` (project-local)
+.cursor/hooks.json
+.claude/
+.codex/
+.gemini/
+.github/hooks/
+.windsurf/
+.agents/hooks.json
+
 benchmarks/results/
 benchmarks/work/

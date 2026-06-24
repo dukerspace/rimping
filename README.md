@@ -65,9 +65,16 @@ Cursor, Claude Code, Codex, Gemini CLI, GitHub Copilot, Windsurf, Antigravity
 {
   "hooks": { "enabled": true, "logStats": true },
   "shell": { "enabled": true, "maxTokens": 4000 },
-  "read": { "enabled": true, "autoLimit": true, "compressOutput": true, "maxLines": 200 }
+  "read": { "enabled": true, "autoLimit": true, "compressOutput": true, "maxLines": 200 },
+  "agents": {
+    "cursor": { "enabled": true },
+    "claude": { "enabled": true },
+    "chatgpt": { "enabled": false }
+  }
 }
 ```
+
+`hooks` ระดับบนใช้กับทุก agent — `agents.<id>` ส่วนใหญ่ใส่แค่ `enabled` ใส่ `agents.<id>.hooks` เฉพาะเมื่อต้องการ override
 
 รายละเอียดเต็ม → [User Guide](docs/user-guide.md)
 
