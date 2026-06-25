@@ -4,8 +4,8 @@ layout: home
 hero:
   name: Rimping
   image:
-    src: /logo.svg
-    alt: Rimping — โลโก้สะพานนวรัตถ์แบบพิกเซล
+    src: /ping-river.png
+    alt: Rimping — ภาพพิกเซลแม่น้ำปิง
   text: ลด token แบบอิง skill
   tagline: ลดการใช้ token ใน prompt ของ LLM อย่างชาญฉลาดโดยยังคงความหมายเดิม
   actions:

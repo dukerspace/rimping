@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/public/logo.svg" alt="Rimping — Nawarat Bridge pixel logo" width="96" height="96">
+  <img src="docs/public/ping-river.png" alt="Rimping — Ping River pixel art" width="128" height="96">
 </p>
 
 # rimping

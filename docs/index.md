@@ -4,8 +4,8 @@ layout: home
 hero:
   name: Rimping
   image:
-    src: /logo.svg
-    alt: Rimping — Nawarat Bridge pixel logo
+    src: /ping-river.png
+    alt: Rimping — Ping River pixel art
   text: Skill-based token optimization
   tagline: Reduce LLM prompt tokens intelligently while preserving semantic meaning
   actions:
