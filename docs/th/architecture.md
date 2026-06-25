@@ -12,7 +12,6 @@ rimping/
 │   ├── cli/          @rimping/cli   — คำสั่ง CLI (citty)
 │   └── core/         @rimping/core  — เครื่องมือปรับ prompt
 ├── docs/             เว็บเอกสาร VitePress
-├── benchmarks/       harness เปรียบเทียบ
 └── turbo.json        จัดการ build
 ```
 
@@ -330,6 +329,5 @@ interface OptimizeResult {
 
 - **Build:** Turbo monorepo — `bun run build` compile ทุกแพ็กเกจ
 - **Docs:** `bun run docs:dev` — VitePress dev server
-- **Benchmarks:** `bun run benchmark` — harness เปรียบเทียบแบบ offline
 - **ทดสอบ:** Bun test runner — `packages/core/test/` สะท้อนโครงสร้าง `src/`
 - **Typecheck:** `bun run typecheck` ทุกแพ็กเกจ

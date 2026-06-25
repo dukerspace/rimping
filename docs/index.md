@@ -3,6 +3,9 @@ layout: home
 
 hero:
   name: Rimping
+  image:
+    src: /logo.svg
+    alt: Rimping — Nawarat Bridge pixel logo
   text: Skill-based token optimization
   tagline: Reduce LLM prompt tokens intelligently while preserving semantic meaning
   actions:
@@ -76,4 +79,3 @@ Agent hooks (parallel):
 | [User Guide](./user-guide) | Installation, commands, config, skills, hooks |
 | [Architecture](./architecture) | Pipeline stages, modules, data flow |
 | [Developer Guide](./developer-guide) | API, extending skills, testing |
-| [Benchmarks](./benchmarks) | Comparison harness vs other token tools |

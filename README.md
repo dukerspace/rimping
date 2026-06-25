@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/public/logo.svg" alt="Rimping — Nawarat Bridge pixel logo" width="96" height="96">
+</p>
+
 # rimping
 
 CLI that reduces tokens in 3 layers — prompt, shell output, and file read — before sending to an LLM agent.
@@ -95,7 +99,6 @@ Run `bun run docs:dev` and open http://localhost:5173
 | User Guide | [user-guide](docs/user-guide.md) | [user-guide](docs/th/user-guide.md) |
 | Architecture | [architecture](docs/architecture.md) | [architecture](docs/th/architecture.md) |
 | Developer | [developer-guide](docs/developer-guide.md) | [developer-guide](docs/th/developer-guide.md) |
-| Benchmarks | [benchmarks](docs/benchmarks.md) | [benchmarks](docs/th/benchmarks.md) |
 
 ## Dev
 
@@ -103,7 +106,6 @@ Run `bun run docs:dev` and open http://localhost:5173
 bun run build
 bun run dev
 bun run typecheck
-bun run benchmark
 ```
 
 [MIT](LICENSE)

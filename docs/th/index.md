@@ -3,6 +3,9 @@ layout: home
 
 hero:
   name: Rimping
+  image:
+    src: /logo.svg
+    alt: Rimping — โลโก้สะพานนวรัตถ์แบบพิกเซล
   text: ลด token แบบอิง skill
   tagline: ลดการใช้ token ใน prompt ของ LLM อย่างชาญฉลาดโดยยังคงความหมายเดิม
   actions:
@@ -76,4 +79,3 @@ Agent hooks (คู่ขนาน):
 | [คู่มือผู้ใช้](./user-guide) | การติดตั้ง, คำสั่ง, config, skills, hooks |
 | [สถาปัตยกรรม](./architecture) | ขั้นตอน pipeline, โมดูล, data flow |
 | [คู่มือนักพัฒนา](./developer-guide) | API, ขยาย skills, การทดสอบ |
-| [Benchmark](./benchmarks) | เทียบกับเครื่องมือลด token อื่น |
