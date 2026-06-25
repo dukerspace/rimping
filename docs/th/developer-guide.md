@@ -27,7 +27,6 @@ bun run build
 | `bun run typecheck` | ตรวจ type ทุกแพ็กเกจ |
 | `bun run rimping` | รัน CLI โหมดพัฒนา |
 | `bun test` | รันเทสต์ (จากไดเรกทอรีแพ็กเกจ) |
-| `bun run benchmark` | รัน benchmark harness (ไม่ต้องใช้ API key) |
 | `bun run docs:dev` | เริ่ม VitePress docs dev server |
 | `bun run docs:build` | Build เว็บเอกสาร |
 

@@ -27,7 +27,6 @@ bun run build
 | `bun run typecheck` | Type-check all packages |
 | `bun run rimping` | Run CLI in dev mode |
 | `bun test` | Run tests (from package directory) |
-| `bun run benchmark` | Run benchmark harness (no API key required) |
 | `bun run docs:dev` | Start VitePress docs dev server |
 | `bun run docs:build` | Build documentation site |
 

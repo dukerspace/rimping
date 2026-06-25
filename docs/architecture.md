@@ -12,7 +12,6 @@ rimping/
 │   ├── cli/          @rimping/cli   — CLI commands (citty)
 │   └── core/         @rimping/core  — optimization engine
 ├── docs/             VitePress documentation site
-├── benchmarks/       comparison harness
 └── turbo.json        build orchestration
 ```
 
@@ -330,6 +329,5 @@ Uses a character-based heuristic (`~4 chars per token`) for fast, dependency-fre
 
 - **Build:** Turbo monorepo — `bun run build` compiles all packages
 - **Docs:** `bun run docs:dev` — VitePress dev server
-- **Benchmarks:** `bun run benchmark` — offline comparison harness
 - **Tests:** Bun test runner — `packages/core/test/` mirrors `src/`
 - **Typecheck:** `bun run typecheck` across all packages

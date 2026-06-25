@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'Rimping',
   description: 'Skill-based token optimization for LLM prompts',
+  base: '/rimping/',
   cleanUrls: true,
   lastUpdated: true,
 
@@ -19,7 +20,6 @@ export default defineConfig({
           { text: 'User Guide', link: '/user-guide' },
           { text: 'Architecture', link: '/architecture' },
           { text: 'Developers', link: '/developer-guide' },
-          { text: 'Benchmarks', link: '/benchmarks' },
         ],
         sidebar: {
           '/': [
@@ -37,7 +37,6 @@ export default defineConfig({
               items: [
                 { text: 'Architecture', link: '/architecture' },
                 { text: 'Developer Guide', link: '/developer-guide' },
-                { text: 'Benchmarks', link: '/benchmarks' },
               ],
             },
           ],
@@ -68,7 +67,6 @@ export default defineConfig({
           { text: 'คู่มือผู้ใช้', link: '/th/user-guide' },
           { text: 'สถาปัตยกรรม', link: '/th/architecture' },
           { text: 'นักพัฒนา', link: '/th/developer-guide' },
-          { text: 'Benchmark', link: '/th/benchmarks' },
         ],
         sidebar: {
           '/th/': [
@@ -86,7 +84,6 @@ export default defineConfig({
               items: [
                 { text: 'สถาปัตยกรรม', link: '/th/architecture' },
                 { text: 'คู่มือนักพัฒนา', link: '/th/developer-guide' },
-                { text: 'Benchmark', link: '/th/benchmarks' },
               ],
             },
           ],
