@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { CLI_VERSION } from './types.js'
+import { CLI_VERSION } from './version.js'
 
 export const NPM_PACKAGE_NAME = 'rimping'
 export const NPM_REGISTRY = 'https://registry.npmjs.org'
@@ -98,11 +98,13 @@ export function readInstalledGitRef(packageRoot: string): string | null {
   }
 }
 
-export function parseCliVersionFromTypesSource(source: string): string | null {
-  const match = source.match(
-    /export const CLI_VERSION = ['"]([^'"]+)['"]/,
-  )
-  return match?.[1] ?? null
+export function parseCliVersionFromPackageJson(source: string): string | null {
+  try {
+    const pkg = JSON.parse(source) as { version?: string }
+    return pkg.version ?? null
+  } catch {
+    return null
+  }
 }
 
 export function detectInstallSource(executablePath: string): InstallSource {
@@ -176,22 +178,22 @@ export async function fetchLatestFromGitHub(
   repo = GITHUB_REPO,
   branch = GITHUB_DEFAULT_BRANCH,
 ): Promise<{ version: string; ref: string } | null> {
-  const typesUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/packages/core/src/types.ts`
+  const packageJsonUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/package.json`
   const commitUrl = `https://api.github.com/repos/${owner}/${repo}/commits/${branch}`
 
-  const [typesResponse, commitResponse] = await Promise.all([
-    fetch(typesUrl, { signal: AbortSignal.timeout(10_000) }),
+  const [packageJsonResponse, commitResponse] = await Promise.all([
+    fetch(packageJsonUrl, { signal: AbortSignal.timeout(10_000) }),
     fetch(commitUrl, {
       headers: { Accept: 'application/vnd.github+json' },
       signal: AbortSignal.timeout(10_000),
     }),
   ])
 
-  if (!typesResponse.ok || !commitResponse.ok) {
+  if (!packageJsonResponse.ok || !commitResponse.ok) {
     return null
   }
 
-  const version = parseCliVersionFromTypesSource(await typesResponse.text())
+  const version = parseCliVersionFromPackageJson(await packageJsonResponse.text())
   const commit = (await commitResponse.json()) as { sha?: string }
   if (!version || !commit.sha) {
     return null

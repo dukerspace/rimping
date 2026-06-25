@@ -1,5 +1,4 @@
 export const CLI_NAME = 'rimping'
-export const CLI_VERSION = '0.1.0'
 
 export type ProviderName = 'openai' | 'claude' | 'gemini' | 'copilot' | 'mock'
 

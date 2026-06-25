@@ -2,6 +2,7 @@
   "name": "rimping",
   "private": true,
   "type": "module",
+  "version": "0.1.0",
   "workspaces": ["packages/*", "docs"],
   "bin": {
     "rimping": "./packages/cli/src/index.ts"

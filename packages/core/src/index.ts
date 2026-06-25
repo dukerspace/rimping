@@ -1,4 +1,5 @@
-export { CLI_NAME, CLI_VERSION } from './types.js'
+export { CLI_NAME } from './types.js'
+export { CLI_VERSION } from './version.js'
 export type {
   Skill,
   ExplainStep,
@@ -155,7 +156,7 @@ export {
   fetchLatestVersion,
   fetchLatestFromGitHub,
   findPackageRoot,
-  parseCliVersionFromTypesSource,
+  parseCliVersionFromPackageJson,
   readInstalledGitRef,
   checkForUpdate,
   runSelfUpdate,

@@ -1,8 +1,8 @@
 # rimping
 
-CLI ลด token ใน 3 ชั้น — prompt, shell output, และ file read — ก่อนส่งให้ LLM agent
+CLI that reduces tokens in 3 layers — prompt, shell output, and file read — before sending to an LLM agent.
 
-## เริ่มต้น
+## Getting started
 
 ```bash
 bun install && bun run build
@@ -11,9 +11,9 @@ bun run rimping -- hooks init
 bun run rimping -- doctor
 ```
 
-หลัง build แล้วใช้ `bunx rimping` แทนได้
+After building, you can use `bunx rimping` instead.
 
-## Token optimization 3 ชั้น
+## 3-layer token optimization
 
 ```
 Prompt  → beforeSubmitPrompt hook → optimize pipeline
@@ -21,28 +21,28 @@ Shell   → pre-shell hook → rimping shell run → compressed output
 Read    → pre-read (line cap) → post-read (compress content)
 ```
 
-| ชั้น | Hook | ทำอะไร |
-|------|------|--------|
-| Prompt | `hooks pre-send` | ตัด filler, inject diff, บีบอัด prompt |
-| Shell | `hooks pre-shell` → `shell run` | บีบอัด git status, test output, rg/grep |
-| Read | `hooks pre-read` / `post-read` | จำกัดบรรทัด + strip comments หลังอ่านไฟล์ |
+| Layer | Hook | What it does |
+|-------|------|--------------|
+| Prompt | `hooks pre-send` | Strip filler, inject diff, compress prompt |
+| Shell | `hooks pre-shell` → `shell run` | Compress git status, test output, rg/grep |
+| Read | `hooks pre-read` / `post-read` | Line limit + strip comments after reading files |
 
-## คำสั่งหลัก
+## Main commands
 
-| คำสั่ง | ทำอะไร |
-|--------|--------|
-| `init` | สร้าง `.rimping/config.json` + hook สำหรับ agent ที่ตรวจพบ |
-| `init -g` | สร้าง `~/.rimping/config.json` และ global hook paths |
-| `hooks init` | สร้างเฉพาะไฟล์ hook (เมื่อรัน `init --no-hooks` แล้ว) |
-| `doctor` | ตรวจ agent + config + hook registration |
-| `optimize [prompt]` | ปรับ prompt ผ่าน pipeline (CLI) |
-| `shell run <cmd>` | รัน command แล้วพิมพ์ output ที่บีบอัด |
-| `stats` | cache + hook savings แยกตาม event |
-| `hooks log` | ดู `.rimping/hooks.log` (pre-send, shell-run, post-read) |
-| `explain` | ขั้นตอน pipeline จากรอบล่าสุด |
-| `skills init` | สร้าง agent guidelines ใน `.agents/skills/` (ไม่เกี่ยวกับ prompt pipeline) |
+| Command | What it does |
+|---------|--------------|
+| `init` | Create `.rimping/config.json` + hooks for detected agents |
+| `init -g` | Create `~/.rimping/config.json` and global hook paths |
+| `hooks init` | Create hook files only (when you ran `init --no-hooks`) |
+| `doctor` | Check agent + config + hook registration |
+| `optimize [prompt]` | Run prompt through the pipeline (CLI) |
+| `shell run <cmd>` | Run a command and print compressed output |
+| `stats` | Cache + hook savings by event |
+| `hooks log` | View `.rimping/hooks.log` (pre-send, shell-run, post-read) |
+| `explain` | Pipeline steps from the latest run |
+| `skills init` | Create agent guidelines in `.agents/skills/` (not part of the prompt pipeline) |
 
-ตัวอย่าง:
+Examples:
 
 ```bash
 bun run rimping -- optimize --diff --max-tokens 4000 "review my changes"
@@ -51,15 +51,15 @@ bun run rimping -- init -g && bun run rimping -- hooks init -g
 echo "prompt" | bun run rimping -- optimize --stdin --json
 ```
 
-## Agent ที่รองรับ hooks
+## Supported hook agents
 
 Cursor, Claude Code, Codex, Gemini CLI, GitHub Copilot, Windsurf, Antigravity
 
-รัน `rimping hooks init` เพื่อ scaffold hook files ให้ agent ที่ตรวจพบ
+Run `rimping hooks init` to scaffold hook files for detected agents.
 
 ## Config
 
-ไฟล์ config รวมกันตอน runtime: `~/.rimping/config.json` (global) + `.rimping/config.json` (project, ชนะ global)
+Config files are merged at runtime: `~/.rimping/config.json` (global) + `.rimping/config.json` (project overrides global)
 
 ```json
 {
@@ -74,22 +74,22 @@ Cursor, Claude Code, Codex, Gemini CLI, GitHub Copilot, Windsurf, Antigravity
 }
 ```
 
-`hooks` ระดับบนใช้กับทุก agent — `agents.<id>` ส่วนใหญ่ใส่แค่ `enabled` ใส่ `agents.<id>.hooks` เฉพาะเมื่อต้องการ override
+Top-level `hooks` applies to all agents — `agents.<id>` is usually just `enabled`; use `agents.<id>.hooks` only when you need an override.
 
-รายละเอียดเต็ม → [User Guide](docs/user-guide.md)
+Full details → [User Guide](docs/user-guide.md)
 
-## โครงสร้าง
+## Structure
 
 ```
 packages/cli   → CLI (@rimping/cli)
 packages/core  → engine (@rimping/core)
 ```
 
-## เอกสาร
+## Documentation
 
-รัน `bun run docs:dev` แล้วเปิด http://localhost:5173
+Run `bun run docs:dev` and open http://localhost:5173
 
-| | EN | ไทย |
+| | EN | TH |
 |---|----|-----|
 | Overview | [docs/](docs/index.md) | [docs/th/](docs/th/index.md) |
 | User Guide | [user-guide](docs/user-guide.md) | [user-guide](docs/th/user-guide.md) |

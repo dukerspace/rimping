@@ -9,7 +9,7 @@ import {
   findPackageRoot,
   GITHUB_INSTALL_SPEC,
   NPM_PACKAGE_NAME,
-  parseCliVersionFromTypesSource,
+  parseCliVersionFromPackageJson,
   readInstalledGitRef,
 } from '../src/self-update.js'
 
@@ -26,10 +26,10 @@ describe('compareVersions', () => {
   })
 })
 
-describe('parseCliVersionFromTypesSource', () => {
-  it('reads CLI_VERSION from types.ts source', () => {
-    const source = `export const CLI_NAME = 'rimping'\nexport const CLI_VERSION = '0.2.0'\n`
-    expect(parseCliVersionFromTypesSource(source)).toBe('0.2.0')
+describe('parseCliVersionFromPackageJson', () => {
+  it('reads version from package.json source', () => {
+    const source = JSON.stringify({ name: 'rimping', version: '0.2.0' })
+    expect(parseCliVersionFromPackageJson(source)).toBe('0.2.0')
   })
 })
 
