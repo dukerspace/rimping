@@ -2,10 +2,12 @@
 import {
   preSend,
   findProjectRoot,
+  inferHookAgent,
   loadConfig,
   mergeHooksConfig,
   resolveOptimizeOptions,
 } from '@rimping/core'
+import type { AgentId } from '@rimping/core'
 
 interface HookInput {
   prompt?: string
@@ -34,14 +36,17 @@ async function main() {
   try {
     const cwd = findProjectRoot(process.cwd())
     const config = await loadConfig(cwd)
-    const hooks = mergeHooksConfig(config)
+    const agent = inferHookAgent(input)
+    const agentId: AgentId | undefined = agent.id === 'unknown' ? undefined : agent.id
+    const hooks = mergeHooksConfig(config, agentId)
     const opts = resolveOptimizeOptions(cwd, config, {
       autoDetectSkills: true,
       useCache: true,
       cwd,
+      forHook: true,
     })
 
-    const result = await preSend(original, { ...opts, config })
+    const result = await preSend(original, { ...opts, config, agentId })
 
     if (hooks.logStats && result.stats) {
       console.error(

@@ -2,31 +2,90 @@ import { defineCommand } from 'citty'
 import {
   buildInitConfig,
   detectAgents,
+  formatAgentHooksStatus,
+  formatConfigStatus,
   getDetectedAgentIds,
   initConfig,
-  initCursorHooks,
   resolveInitCwd,
+  resolveInitTarget,
+  type AgentId,
+  type AgentProbeResult,
+  type ConfigInitResult,
 } from '@rimping/core'
-import { readFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import consola from 'consola'
+import { formatAgentHookLine, formatKeyValueLine, muted, section, title } from '../style.js'
+import { printHooksInitStatus, runHooksInit, type HooksProjectInitResult } from './hooks-init.js'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+function printConfigOnlyStatus(
+  result: ConfigInitResult,
+  options: {
+    heading: string
+    dryRun?: boolean
+    detectedAgents?: AgentId[]
+    agentProbes?: AgentProbeResult[]
+    showAgentHooks?: boolean
+    global?: boolean
+  },
+): void {
+  if (options.dryRun) {
+    consola.info('Dry run — no files written')
+  }
 
-async function loadHookTemplates(): Promise<string> {
-  const templatePath = join(__dirname, '..', '..', 'templates', 'cursor-hooks', 'hooks.json')
-  return readFile(templatePath, 'utf-8')
+  consola.log('')
+  consola.log(title(options.heading))
+  consola.log('')
+
+  const configChanged =
+    result.created.length > 0 || result.updated.length > 0 || result.skipped.length > 0
+
+  if (configChanged) {
+    consola.log('')
+    consola.log(section('Config'))
+
+    for (const file of result.created) {
+      consola.success(`Created ${file}`)
+    }
+    for (const file of result.updated) {
+      consola.success(
+        options.global
+          ? `Updated ${file} (added missing providers and hooks)`
+          : `Updated ${file} (provider, agents, hooks, shell, read)`,
+      )
+    }
+    for (const file of result.skipped) {
+      consola.info(`Up to date ${file}`)
+    }
+
+    consola.log('')
+    consola.log(section('Settings'))
+    for (const line of formatConfigStatus(result.config, { detectedAgents: options.detectedAgents })) {
+      consola.log(formatKeyValueLine(line))
+    }
+  }
+
+  if (options.showAgentHooks) {
+    consola.log('')
+    consola.log(section('Agent Hooks'))
+    for (const line of formatAgentHooksStatus(result.config, options.agentProbes)) {
+      consola.log(formatAgentHookLine(line))
+    }
+  }
+
+  if (result.created.length === 0 && result.updated.length === 0 && result.skipped.length === 0) {
+    consola.log(muted('Nothing to do.'))
+  }
+
+  consola.log('')
 }
 
 export const initCommand = defineCommand({
   meta: {
-    description: 'Initialize .rimping/config.json in the project',
+    description: 'Initialize .rimping/config.json and agent hooks (project-local; use -g for global)',
   },
   args: {
     force: {
       type: 'boolean',
-      description: 'Overwrite existing config.json',
+      description: 'Overwrite existing config.json and hook files',
       default: false,
     },
     'dry-run': {
@@ -50,77 +109,74 @@ export const initCommand = defineCommand({
     },
     'no-hooks': {
       type: 'boolean',
-      description: 'Skip scaffolding Cursor beforeSubmitPrompt hook when Cursor is detected',
+      description: 'Skip scaffolding agent hooks (config only)',
+      default: false,
+    },
+    global: {
+      type: 'boolean',
+      alias: 'g',
+      description: 'Initialize ~/.rimping/config.json instead of project .rimping/config.json',
       default: false,
     },
   },
   async run({ args }) {
-    const cwd = resolveInitCwd(args.cwd)
+    const global = args.global
+    const projectCwd = resolveInitCwd(args.cwd)
+    const configCwd = resolveInitTarget({ global, cwd: args.cwd })
 
-    let detectedAgents: ReturnType<typeof getDetectedAgentIds> | undefined
+    let agentProbes: AgentProbeResult[] | undefined
+    let detectedAgents: AgentId[] | undefined
+
     if (!args['no-detect']) {
-      const agents = await detectAgents(cwd)
-      detectedAgents = getDetectedAgentIds(agents)
+      agentProbes = await detectAgents(configCwd)
+      detectedAgents = getDetectedAgentIds(agentProbes)
     }
 
-    const result = await initConfig({
-      cwd,
-      force: args.force,
-      dryRun: args['dry-run'],
-      detectedAgents,
-      templateConfig: buildInitConfig(detectedAgents),
-    })
+    const useHooksInit = !args['no-hooks']
+
+    let hooksResult: HooksProjectInitResult | undefined
+    let configResult: ConfigInitResult | undefined
+
+    if (useHooksInit) {
+      hooksResult = await runHooksInit({
+        cwd: projectCwd,
+        global,
+        force: args.force,
+        dryRun: args['dry-run'],
+        detectedAgents: args['no-detect'] ? [] : detectedAgents,
+        agents: agentProbes,
+      })
+    } else {
+      configResult = await initConfig({
+        cwd: configCwd,
+        global,
+        force: args.force,
+        dryRun: args['dry-run'],
+        detectedAgents,
+        templateConfig: buildInitConfig(detectedAgents, undefined, { detectedOnly: global }),
+      })
+    }
 
     if (args.json) {
-      console.log(JSON.stringify(result, null, 2))
+      console.log(JSON.stringify(hooksResult ?? configResult, null, 2))
       return
     }
 
-    if (args['dry-run']) {
-      consola.info('Dry run — no files written')
-    }
-
-    consola.log('')
-    consola.log('Rimping Init')
-    consola.log('')
-
-    if (result.created.length > 0) {
-      for (const file of result.created) {
-        consola.success(`Created ${file}`)
-      }
-      if (detectedAgents && detectedAgents.length > 0) {
-        consola.log('')
-        consola.log(`Detected agents: ${detectedAgents.join(', ')}`)
-      }
-    }
-
-    if (result.skipped.length > 0) {
-      for (const file of result.skipped) {
-        consola.warn(`Skipped ${file} (already exists, use --force to overwrite)`)
-      }
-    }
-
-    if (result.created.length === 0 && result.skipped.length === 0) {
-      consola.log('Nothing to do.')
-    }
-
-    if (!args['no-hooks'] && detectedAgents?.includes('cursor')) {
-      const hooksJsonTemplate = await loadHookTemplates()
-      const hooksResult = await initCursorHooks({
-        cwd,
-        force: args.force,
+    if (hooksResult) {
+      printHooksInitStatus(hooksResult, {
+        heading: global ? 'Rimping Init (global)' : 'Rimping Init',
         dryRun: args['dry-run'],
-        hooksJsonTemplate,
       })
-      if (hooksResult.created.length > 0) {
-        consola.log('')
-        consola.log('Cursor Hooks')
-        for (const file of hooksResult.created) {
-          consola.success(`Created ${file}`)
-        }
-      }
+      return
     }
 
-    consola.log('')
+    printConfigOnlyStatus(configResult!, {
+      heading: global ? 'Rimping Init (global)' : 'Rimping Init',
+      dryRun: args['dry-run'],
+      detectedAgents,
+      agentProbes,
+      showAgentHooks: global,
+      global,
+    })
   },
 })

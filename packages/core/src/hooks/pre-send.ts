@@ -1,5 +1,5 @@
 import type { ExplainStep, OptimizationStats, OptimizeOptions } from '../types.js'
-import type { HooksConfig, RimpingConfig } from '../config.js'
+import type { AgentId, HooksConfig, RimpingConfig } from '../config.js'
 import { loadConfig } from '../config.js'
 import { optimize } from '../pipeline.js'
 import { mergeHooksConfig, resolveOptimizeOptions } from '../resolve-options.js'
@@ -18,12 +18,13 @@ export interface PreSendResult {
 export interface PreSendOptions extends Partial<OptimizeOptions> {
   hooks?: Partial<HooksConfig>
   config?: RimpingConfig | null
+  agentId?: AgentId
 }
 
 export async function preSend(prompt: string, options?: PreSendOptions): Promise<PreSendResult> {
   const cwd = options?.cwd ?? findProjectRoot(process.cwd())
   const config = options?.config !== undefined ? options.config : await loadConfig(cwd)
-  const hooks = { ...mergeHooksConfig(config), ...options?.hooks }
+  const hooks = { ...mergeHooksConfig(config, options?.agentId), ...options?.hooks }
 
   if (!hooks.enabled || !hooks.optimizeOnSubmit) {
     return { text: prompt, optimized: false, skipped: 'disabled' }
@@ -38,6 +39,7 @@ export async function preSend(prompt: string, options?: PreSendOptions): Promise
       ...options,
       prompt,
       cwd,
+      forHook: true,
     })
 
     const result = await optimize(optimizeOpts)

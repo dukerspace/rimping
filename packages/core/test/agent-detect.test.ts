@@ -23,6 +23,16 @@ describe('detectAgents', () => {
     expect(cursor?.evidence).toContain('.cursor/hooks.json')
   })
 
+  it('detects copilot from project .copilot directory', async () => {
+    tempDir = join(tmpdir(), `rimping-detect-${Date.now()}`)
+    await mkdir(join(tempDir, '.copilot'), { recursive: true })
+
+    const agents = await detectAgents(tempDir)
+    const copilot = agents.find((a) => a.id === 'copilot')
+    expect(copilot?.status).toBe('detected')
+    expect(copilot?.evidence).toContain('.copilot/')
+  })
+
   it('reports chatgpt as unknown', async () => {
     tempDir = join(tmpdir(), `rimping-detect-${Date.now()}`)
     const agents = await detectAgents(tempDir)
@@ -79,7 +89,17 @@ describe('runDoctor', () => {
     await mkdir(join(tempDir, '.cursor/hooks'), { recursive: true })
     await writeFile(
       join(tempDir, '.cursor/hooks.json'),
-      JSON.stringify({ version: 1, hooks: { beforeSubmitPrompt: [{ command: 'rimping hooks pre-send' }] } }),
+      JSON.stringify({
+        version: 1,
+        hooks: {
+          beforeSubmitPrompt: [{ command: 'rimping hooks pre-send' }],
+          preToolUse: [
+            { command: 'rimping hooks pre-shell', matcher: 'Shell' },
+            { command: 'rimping hooks pre-read', matcher: 'Read' },
+          ],
+          postToolUse: [{ command: 'rimping hooks post-read', matcher: 'Read' }],
+        },
+      }),
     )
 
     const result = await runDoctor(tempDir)

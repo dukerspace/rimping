@@ -22,16 +22,22 @@ features:
     details: ตัดคำฟุ่มเฟือย ลบบรรทัดซ้ำ และบีบอัด code block โดยไม่เสียความหมาย
   - icon: 🧩
     title: Skill plugins
-    details: prompt skills และ agent skills แบบ Markdown สำหรับ domain เฉพาะ
+    details: prompt skills ที่ผู้ใช้สร้างเอง และ agent skills สำหรับ domain เฉพาะ
   - icon: 🔀
     title: Git diff context
     details: ใส่และบีบอัด hunk ที่แก้ไข พร้อมเสริม symbol จาก tree-sitter
   - icon: 🪝
-    title: Cursor hooks
-    details: ปรับ prompt อัตโนมัติก่อนส่ง — fail open เมื่อเกิด error
+    title: Multi-agent hooks
+    details: ปรับ prompt บีบอัด shell output และจำกัดการอ่านไฟล์อัตโนมัติ — fail open เมื่อเกิด error
+  - icon: 📖
+    title: Read compression
+    details: ดักจับการอ่านไฟล์เพื่อใส่ขีดจำกัดบรรทัดและตัด comment จากไฟล์ใหญ่
+  - icon: 🐚
+    title: บีบอัด shell
+    details: Rewrite คำสั่ง shell และบีบอัด git status, test output และผล grep
   - icon: 🌐
     title: หลาย provider
-    details: adapter สำหรับ OpenAI, Claude, Gemini และ mock สำหรับทดสอบ
+    details: adapter สำหรับ OpenAI, Claude, Gemini, Copilot และ mock สำหรับทดสอบ
   - icon: 📦
     title: Programmatic API
     details: ใช้ optimize() และ preSend() จาก @rimping/core ในเครื่องมือของคุณ
@@ -54,7 +60,13 @@ Prompt ที่ป้อนเข้า
   → Context Builder     (git diff, ไฟล์, memory)
   → Token Optimizer     (ตัดคำฟุ่มเฟือย, ลบซ้ำ, บีบอัด)
   → Budget Planner      (ขีดจำกัด token)
-  → Provider Adapter    (OpenAI, Claude, Gemini)
+  → Provider Adapter    (OpenAI, Claude, Gemini, Copilot)
+
+Agent hooks (คู่ขนาน):
+  pre-send   → ปรับ prompt
+  pre-shell  → บีบอัด shell output
+  pre-read   → จำกัดการอ่านไฟล์
+  post-read  → บีบอัดเนื้อหาไฟล์
 ```
 
 ## เอกสาร
@@ -64,3 +76,4 @@ Prompt ที่ป้อนเข้า
 | [คู่มือผู้ใช้](./user-guide) | การติดตั้ง, คำสั่ง, config, skills, hooks |
 | [สถาปัตยกรรม](./architecture) | ขั้นตอน pipeline, โมดูล, data flow |
 | [คู่มือนักพัฒนา](./developer-guide) | API, ขยาย skills, การทดสอบ |
+| [Benchmark](./benchmarks) | เทียบกับเครื่องมือลด token อื่น |

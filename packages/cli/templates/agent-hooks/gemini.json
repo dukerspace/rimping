@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "run_shell_command",
+        "hooks": [
+          {
+            "name": "rimping-pre-shell",
+            "type": "command",
+            "command": "rimping hooks pre-shell",
+            "timeout": 10000
+          }
+        ]
+      },
+      {
+        "matcher": "read_file",
+        "hooks": [
+          {
+            "name": "rimping-pre-read",
+            "type": "command",
+            "command": "rimping hooks pre-read",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "read_file",
+        "hooks": [
+          {
+            "name": "rimping-post-read",
+            "type": "command",
+            "command": "rimping hooks post-read",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}

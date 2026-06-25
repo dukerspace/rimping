@@ -5,6 +5,7 @@
     "": {
       "name": "rimping",
       "devDependencies": {
+        "@rimping/core": "workspace:*",
         "@types/bun": "latest",
         "prettier": "^3.5.3",
         "turbo": "^2.5.4",

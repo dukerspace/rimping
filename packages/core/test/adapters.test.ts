@@ -35,6 +35,13 @@ describe('adapters', () => {
     expect(formatted).toContain('hello')
   })
 
+  it('formats copilot prompt as user-only chat messages JSON', () => {
+    const formatted = getAdapter('copilot').formatPrompt(sampleResult('hello'))
+    expect(formatted).toContain('"role": "user"')
+    expect(formatted).not.toContain('"role": "system"')
+    expect(formatted).toContain('hello')
+  })
+
   it('mock adapter returns optimized text unchanged', () => {
     const adapter = getAdapter('mock')
     expect(adapter.formatPrompt(sampleResult('hello'))).toBe('hello')
@@ -47,6 +54,7 @@ describe('adapters', () => {
 
   it('send returns provider-specific mock prefix', async () => {
     expect(await getAdapter('openai').send('prompt')).toContain('[mock-openai]')
+    expect(await getAdapter('copilot').send('prompt')).toContain('[mock-copilot]')
     expect(await getAdapter('mock').send('prompt')).toBe('prompt')
   })
 })

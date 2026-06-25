@@ -7,6 +7,7 @@ import {
   type ProviderName,
 } from '@rimping/core'
 import consola from 'consola'
+import { dimText, highlight, label, muted, section, title } from '../style.js'
 
 export const optimizeCommand = defineCommand({
   meta: {
@@ -32,7 +33,7 @@ export const optimizeCommand = defineCommand({
     },
     provider: {
       type: 'string',
-      description: 'Provider adapter (openai, claude, gemini, mock)',
+      description: 'Provider adapter (openai, claude, gemini, copilot, mock)',
     },
     stdin: {
       type: 'boolean',
@@ -90,14 +91,24 @@ export const optimizeCommand = defineCommand({
     const result = await optimize(resolved)
 
     if (args.explain) {
-      for (const step of result.explain) {
+      consola.log(title('Pipeline Explain'))
+      for (const [i, step] of result.explain.entries()) {
         const saved = step.tokensBefore - step.tokensAfter
-        consola.info(
-          `[${step.stage}${step.strategy ? `:${step.strategy}` : ''}] ${step.tokensBefore} → ${step.tokensAfter} (${saved >= 0 ? '-' : '+'}${Math.abs(saved)} tokens)${step.detail ? ` — ${step.detail}` : ''}`,
+        consola.log(
+          `${highlight(String(i + 1))}. ${section(`${step.stage}${step.strategy ? ` → ${step.strategy}` : ''}`)}`,
+        )
+        consola.log(
+          dimText(
+            `   ${step.tokensBefore} → ${step.tokensAfter} (${saved >= 0 ? '-' : '+'}${Math.abs(saved)} tokens)${step.detail ? ` — ${step.detail}` : ''}`,
+          ),
         )
       }
-      consola.info(
-        `Total: ${result.stats.originalTokens} → ${result.stats.optimizedTokens} tokens (${result.stats.savingsPercent}% saved, ${result.stats.durationMs}ms)`,
+      consola.log('')
+      consola.log(
+        label(
+          'Total:',
+          `${result.stats.originalTokens} → ${result.stats.optimizedTokens} tokens (${result.stats.savingsPercent}% saved, ${result.stats.durationMs}ms)`,
+        ),
       )
     }
 
@@ -106,8 +117,10 @@ export const optimizeCommand = defineCommand({
     } else {
       console.log(result.optimized)
       if (!args.explain) {
-        consola.info(
-          `Saved ${result.stats.savingsPercent}% tokens (${result.stats.originalTokens} → ${result.stats.optimizedTokens}, ${result.stats.durationMs}ms)`,
+        consola.log(
+          muted(
+            `Saved ${result.stats.savingsPercent}% tokens (${result.stats.originalTokens} → ${result.stats.optimizedTokens}, ${result.stats.durationMs}ms)`,
+          ),
         )
       }
     }

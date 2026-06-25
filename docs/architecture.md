@@ -4,15 +4,15 @@ This document describes how Rimping is structured internally — the optimizatio
 
 ## High-Level Overview
 
-Rimping is a Bun + TypeScript monorepo with two packages:
+Rimping is a Bun + TypeScript monorepo:
 
 ```
 rimping/
 ├── packages/
 │   ├── cli/          @rimping/cli   — CLI commands (citty)
 │   └── core/         @rimping/core  — optimization engine
-├── skills/           bundled prompt skills (Markdown)
-├── .cursor/          Cursor hook integration (example)
+├── docs/             VitePress documentation site
+├── benchmarks/       comparison harness
 └── turbo.json        build orchestration
 ```
 
@@ -31,8 +31,10 @@ flowchart TB
   end
 
   subgraph hooks [rimping hooks]
-    HookScript[Cursor pre-send hook]
+    HookScript[Agent hook scripts]
     PreSend[preSend API]
+    PreShell[pre-shell / shell run]
+    PreRead[pre-read / post-read]
   end
 
   subgraph pipeline [Optimize Pipeline]
@@ -48,10 +50,13 @@ flowchart TB
     Config[config.json]
     Cache[cache]
     LastRun[last-run.json]
+    HookLog[hooks.log]
   end
 
   agents -->|"stdin JSON"| HookScript
   HookScript --> PreSend
+  HookScript --> PreShell
+  HookScript --> PreRead
   PreSend --> Skills
   Skills --> Context
   Context --> GitDiff
@@ -68,7 +73,7 @@ flowchart TB
   Provider --> LastRun
 ```
 
-**Notes:** Git Diff is a sub-step of Context Builder, not a separate pipeline stage. Claude and other agents have no bundled hook template — integrate via the `preSend()` API or `rimping optimize` CLI. Provider Adapter formats output for LLM providers, not agent transport.
+**Notes:** Git Diff is a sub-step of Context Builder, not a separate pipeline stage. `rimping init` scaffolds hook files for Cursor, Claude Code, Codex, Gemini, Copilot, Windsurf, and Antigravity. Provider Adapter formats output for LLM providers, not agent transport.
 
 ## Optimization Pipeline
 
@@ -89,8 +94,8 @@ flowchart LR
 **Module:** `packages/core/src/skill-engine.ts`
 
 1. `loadSkills(cwd)` — scans `./skills/` and `~/.rimping/skills/`, parses Markdown frontmatter
-2. `selectSkills()` — picks skills by explicit `--skills` IDs or `autoDetectSkills()` keyword matching
-3. `composeSkills()` — prepends skill rules/transformation instructions to the prompt
+2. `selectSkills()` — explicit `--skills` / `defaultSkills` IDs, else `autoDetectSkills()` keyword matching, else none
+3. `composeSkills()` — applies skill transformation rules to the prompt
 
 Skills are ranked by `priority`. User-level skills (`~/.rimping/skills/`) override project skills with the same `id`.
 
@@ -151,6 +156,7 @@ Formats the final output for the target LLM provider:
 | `OpenAIAdapter` | OpenAI chat format |
 | `ClaudeAdapter` | Anthropic Claude format |
 | `GeminiAdapter` | Google Gemini format |
+| `CopilotAdapter` | GitHub Copilot chat format (user message only) |
 | `MockAdapter` | Pass-through (testing) |
 
 ## Caching
@@ -169,39 +175,92 @@ Last run metadata is persisted to `~/.rimping/last-run.json` for `stats` and `ex
 **Modules:** `config.ts`, `config-init.ts`, `resolve-options.ts`
 
 ```
-.rimping/config.json
+~/.rimping/config.json  (global)
+       +
+.rimping/config.json    (project — wins on conflict)
        ↓
   loadConfig(cwd)
        ↓
   resolveOptimizeOptions()  — merges CLI flags > config > defaults
+  resolveShellOptions()     — merges shell config
+  resolveReadOptions()      — merges read config
+  mergeHooksConfig()        — top-level hooks + per-agent overrides + enabled
        ↓
-  optimize(options)
+  optimize() / preSend() / compressShellOutput() / compressReadContent()
 ```
 
-`resolve-options.ts` also merges `hooks` config for the `preSend` hook path.
+Config is stored compactly: top-level `hooks` holds defaults for all agents; `agents.<id>` usually only sets `enabled`. Per-agent `hooks` blocks are written only when they differ from the top-level defaults (`compactAgentConfig` in `config-init.ts`).
+
+`mergeHooksConfig(config, agentId)` in `resolve-options.ts` applies, in order: built-in defaults → top-level `hooks` → `agents.<id>.hooks` → `agents.<id>.enabled === false` forces `hooks.enabled` off.
 
 ## Agent Detection
 
 **Module:** `packages/core/src/agent-detect.ts`
 
-`detectAgents(cwd)` probes the filesystem and PATH for known AI coding tools. `runDoctor(cwd)` combines agent detection with config validation and agent skill presence checks.
+`detectAgents(cwd)` probes the filesystem and PATH for known AI coding tools. `runDoctor(cwd)` combines agent detection with config validation, agent skill checks, and Cursor hook registration (pre-send, pre-shell, pre-read, post-read).
 
 ## Hook Integration
 
-**Module:** `packages/core/src/hooks/pre-send.ts`
+**Modules:** `packages/core/src/hooks/`, `packages/core/src/hooks-init.ts`, `packages/cli/templates/agent-hooks/`
 
-The `preSend()` function is the hook entry point:
+Rimping wires four hook entry points into each supported agent:
+
+| CLI command | Purpose |
+|-------------|---------|
+| `rimping hooks pre-send` | Prompt optimization via `preSend()` |
+| `rimping hooks pre-shell` | Rewrite shell/bash commands to `rimping shell run` |
+| `rimping hooks pre-read` | Inject line limits before file reads |
+| `rimping hooks post-read` | Compress file content after reads |
+
+The `preSend()` function is the prompt hook entry point:
 
 ```
 preSend(prompt)
-  → loadConfig + mergeHooksConfig
+  → loadConfig + mergeHooksConfig (per-agent overrides)
   → skip if disabled / too short
   → optimize(prompt)
   → skip if savings < minSavingsPercent
   → return optimized text (or original on error — fail open)
 ```
 
-CLI `hooks init` copies templates from `packages/cli/templates/cursor-hooks/` into `.cursor/hooks/`.
+`rimping init` and `rimping hooks init` copy per-agent templates from `packages/cli/templates/agent-hooks/` into the paths defined in `agent-hook-specs.ts`. Merge strategies vary by agent (`replace`, `merge-hooks`, `merge-named-hooks`) to preserve existing hook configuration.
+
+## Shell Output Compression
+
+**Module:** `packages/core/src/shell-output/`
+
+`compressShellOutput(command, raw)` compresses terminal output before it enters agent context:
+
+```
+git status / cargo test / rg → command-specific filter → generic (ansi, dedupe) → budget-trim
+```
+
+The `pre-shell` hook rewrites agent shell tool calls to route through `rimping shell run`.
+
+## File Read Compression
+
+**Module:** `packages/core/src/file-read/`
+
+Read hooks intercept agent file-read tool calls:
+
+```
+pre-read  → inject maxLines limit (autoLimit)
+post-read → compressReadContent (strip comments, trim lines, budget-trim)
+```
+
+`compressReadContent()` applies generic whitespace cleanup, optional comment stripping for code files, line trimming, and token budget enforcement. Controlled by the `read` section in config.
+
+## Hook Logging
+
+**Module:** `packages/core/src/hooks/log.ts`
+
+When `hooks.logStats` is enabled, each hook run appends a JSON line to `.rimping/hooks.log` with prompt preview, pipeline explain steps, token savings, and agent inference. `rimping hooks log` and `rimping stats` consume this data.
+
+## Self-Update
+
+**Module:** `packages/core/src/self-update.ts`
+
+`rimping update` detects install source (GitHub checkout vs npm), compares versions, and runs `runSelfUpdate()`. Supports `--check` and `--dry-run`.
 
 ## CLI Layer
 
@@ -211,13 +270,20 @@ Built with [citty](https://github.com/unjs/citty). Commands map directly to core
 
 | Command | Core module |
 |---------|-------------|
-| `init` | `config-init.ts` |
+| `init` | `config-init.ts`, `hooks-init.ts` |
 | `doctor` | `agent-detect.ts` |
 | `optimize` | `pipeline.ts` |
 | `stats` | `cache.ts`, `pipeline.ts` |
 | `explain` | `pipeline.ts` |
 | `skills init` | `agent-skills-init.ts` |
 | `hooks init` | `hooks-init.ts` |
+| `hooks pre-send` | `hooks/pre-send.ts` |
+| `hooks pre-shell` | `shell-output/pre-shell.ts` |
+| `hooks pre-read` | `file-read/pre-read.ts` |
+| `hooks post-read` | `file-read/post-read.ts` |
+| `hooks log` | `hooks/log.ts` |
+| `shell run` | `shell-output/run.ts` |
+| `update` | `self-update.ts` |
 
 ## Type System
 
@@ -262,6 +328,8 @@ Uses a character-based heuristic (`~4 chars per token`) for fast, dependency-fre
 
 ## Build & Test
 
-- **Build:** Turbo monorepo — `bun run build` compiles both packages
+- **Build:** Turbo monorepo — `bun run build` compiles all packages
+- **Docs:** `bun run docs:dev` — VitePress dev server
+- **Benchmarks:** `bun run benchmark` — offline comparison harness
 - **Tests:** Bun test runner — `packages/core/test/` mirrors `src/`
 - **Typecheck:** `bun run typecheck` across all packages

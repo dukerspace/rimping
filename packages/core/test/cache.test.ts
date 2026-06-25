@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'bun:test'
 import { unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
-import { buildCacheHash, getCached, getCacheDir, setCached } from '../src/cache.js'
+import { buildCacheHash, getCached, getCacheDir, getCacheStatsByDate, setCached } from '../src/cache.js'
 import type { OptimizeResult } from '../src/types.js'
 
 const sampleResult = (): OptimizeResult => ({
@@ -58,5 +58,20 @@ describe('cache', () => {
     expect(cached).not.toBeNull()
     expect(cached!.optimized).toBe('optimized text')
     expect(cached!.stats.cacheHit).toBe(true)
+  })
+
+  it('getCacheStatsByDate groups valid entries by UTC date', async () => {
+    const hash = await buildCacheHash({ prompt: `by-date-${Date.now()}-${Math.random()}` })
+    cachePath = join(getCacheDir(), `${hash}.json`)
+    await setCached(hash, sampleResult())
+
+    const byDate = await getCacheStatsByDate()
+    const today = new Date().toISOString().slice(0, 10)
+    const todayStats = byDate.find((day) => day.date === today)
+
+    expect(todayStats).toBeDefined()
+    expect(todayStats!.entries).toBeGreaterThanOrEqual(1)
+    expect(todayStats!.tokensSaved).toBeGreaterThanOrEqual(10)
+    expect(todayStats!.avgSavingsPercent).toBeGreaterThan(0)
   })
 })

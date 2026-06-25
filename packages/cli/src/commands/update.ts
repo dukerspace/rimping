@@ -6,12 +6,13 @@ import {
   runSelfUpdate,
 } from '@rimping/core'
 import consola from 'consola'
+import { label, title } from '../style.js'
 import { fileURLToPath } from 'node:url'
 
 export const updateCommand = defineCommand({
   meta: {
     description:
-      'Check for updates and install the latest rimping CLI from npm (use --check to only compare versions)',
+      'Check for updates and install the latest rimping CLI from GitHub or npm (use --check to only compare versions)',
   },
   args: {
     check: {
@@ -34,13 +35,16 @@ export const updateCommand = defineCommand({
   async run({ args }) {
     const executablePath = process.argv[1] ?? fileURLToPath(import.meta.url)
     const installSource = detectInstallSource(executablePath)
-    const versionCheck = await checkForUpdate()
+    const versionCheck = await checkForUpdate({ executablePath })
 
     if (args.check) {
       const payload = {
         current: versionCheck.current,
         latest: versionCheck.latest,
         updateAvailable: versionCheck.updateAvailable,
+        channel: versionCheck.channel,
+        currentRef: versionCheck.currentRef,
+        latestRef: versionCheck.latestRef,
         installSource,
         error: versionCheck.error,
       }
@@ -51,10 +55,17 @@ export const updateCommand = defineCommand({
       }
 
       consola.log('')
-      consola.log(`rimping ${CLI_VERSION}`)
-      consola.log(`Install:  ${installSource}`)
+      consola.log(title(`rimping ${CLI_VERSION}`))
+      consola.log(label('Install:', String(installSource)))
+      consola.log(label('Channel:', versionCheck.channel))
       if (versionCheck.latest) {
-        consola.log(`Latest:   ${versionCheck.latest}`)
+        consola.log(label('Latest:', versionCheck.latest))
+      }
+      if (versionCheck.latestRef) {
+        consola.log(label('Latest ref:', versionCheck.latestRef))
+      }
+      if (versionCheck.currentRef) {
+        consola.log(label('Current ref:', versionCheck.currentRef))
       }
       if (versionCheck.updateAvailable) {
         consola.log('')
@@ -83,11 +94,12 @@ export const updateCommand = defineCommand({
     }
 
     consola.log('')
-    consola.log('Rimping Update')
+    consola.log(title('Rimping Update'))
     consola.log('')
-    consola.log(`  Current:  ${result.previousVersion}`)
-    if (result.newVersion) consola.log(`  Latest:   ${result.newVersion}`)
-    consola.log(`  Install:  ${result.installSource}`)
+    consola.log(label('Current:', result.previousVersion))
+    if (result.newVersion) consola.log(label('Latest:', result.newVersion))
+    consola.log(label('Install:', String(result.installSource)))
+    consola.log(label('Channel:', result.channel))
     consola.log('')
 
     if (result.success) {

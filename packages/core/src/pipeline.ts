@@ -1,5 +1,5 @@
 import type { OptimizeOptions, OptimizeResult } from './types.js'
-import { loadSkills, selectSkills, composeSkills } from './skill-engine.js'
+import { loadSkills, selectSkills, composeSkills, reconcileSkillsUsed } from './skill-engine.js'
 import { buildContext } from './context-builder.js'
 import { optimizeText } from './optimizer.js'
 import { applyBudget } from './budget-planner.js'
@@ -21,25 +21,50 @@ async function persistLastResult(result: OptimizeResult): Promise<void> {
   await writeFile(LAST_RUN_PATH, JSON.stringify(result, null, 2))
 }
 
-export async function loadLastResult(): Promise<OptimizeResult | null> {
-  if (lastResult) return lastResult
-  if (!existsSync(LAST_RUN_PATH)) return null
-  try {
-    const content = await readFile(LAST_RUN_PATH, 'utf-8')
-    lastResult = JSON.parse(content) as OptimizeResult
-    return lastResult
-  } catch {
-    return null
+export async function loadLastResult(cwd = process.cwd()): Promise<OptimizeResult | null> {
+  if (!lastResult && existsSync(LAST_RUN_PATH)) {
+    try {
+      const content = await readFile(LAST_RUN_PATH, 'utf-8')
+      lastResult = JSON.parse(content) as OptimizeResult
+    } catch {
+      return null
+    }
   }
+  if (!lastResult) return null
+
+  const reconciled = await reconcileResultSkills(cwd, lastResult)
+  if (reconciled.stats.skillsUsed.length !== lastResult.stats.skillsUsed.length) {
+    await setLastResult(reconciled, cwd)
+    return reconciled
+  }
+
+  lastResult = reconciled
+  return reconciled
 }
 
 export function getLastResult(): OptimizeResult | null {
   return lastResult
 }
 
-export async function setLastResult(result: OptimizeResult): Promise<void> {
-  lastResult = result
-  await persistLastResult(result)
+async function reconcileResultSkills(cwd: string, result: OptimizeResult): Promise<OptimizeResult> {
+  const skillsUsed = await reconcileSkillsUsed(cwd, result.stats.skillsUsed)
+  if (skillsUsed.length === result.stats.skillsUsed.length) return result
+
+  return {
+    ...result,
+    stats: { ...result.stats, skillsUsed },
+    explain: result.explain.map((step) =>
+      step.stage === 'skill-engine'
+        ? { ...step, detail: `Applied skills: ${skillsUsed.join(', ') || 'none'}` }
+        : step,
+    ),
+  }
+}
+
+export async function setLastResult(result: OptimizeResult, cwd = process.cwd()): Promise<void> {
+  const reconciled = await reconcileResultSkills(cwd, result)
+  lastResult = reconciled
+  await persistLastResult(reconciled)
 }
 
 export async function optimize(options: OptimizeOptions): Promise<OptimizeResult> {
@@ -57,12 +82,13 @@ export async function optimize(options: OptimizeOptions): Promise<OptimizeResult
     })
     const cached = await getCached(hash)
     if (cached) {
-      await setLastResult(cached)
-      return cached
+      const reconciled = await reconcileResultSkills(cwd, cached)
+      await setLastResult(reconciled, cwd)
+      return reconciled
     }
   }
 
-  const originalTokens = estimateTokens(options.prompt)
+  const promptTokens = estimateTokens(options.prompt)
   const explain: OptimizeResult['explain'] = []
 
   const allSkills = await loadSkills(cwd)
@@ -75,7 +101,7 @@ export async function optimize(options: OptimizeOptions): Promise<OptimizeResult
   const { text: skilledText, skillIds } = composeSkills(selected, options.prompt)
   explain.push({
     stage: 'skill-engine',
-    tokensBefore: originalTokens,
+    tokensBefore: promptTokens,
     tokensAfter: estimateTokens(skilledText),
     detail: `Applied skills: ${skillIds.join(', ') || 'none'}`,
   })
@@ -87,6 +113,9 @@ export async function optimize(options: OptimizeOptions): Promise<OptimizeResult
     cwd,
   })
   explain.push(...context.explain)
+
+  const inputTokens = estimateTokens(context.text)
+  const contextTokens = Math.max(0, inputTokens - estimateTokens(skilledText))
 
   const optimized = optimizeText(context.text)
   explain.push(...optimized.explain)
@@ -100,9 +129,11 @@ export async function optimize(options: OptimizeOptions): Promise<OptimizeResult
   const result: OptimizeResult = {
     optimized: budgeted.text,
     stats: {
-      originalTokens,
+      originalTokens: inputTokens,
       optimizedTokens: finalTokens,
-      savingsPercent: tokenSavingsPercent(originalTokens, finalTokens),
+      promptTokens,
+      contextTokens,
+      savingsPercent: tokenSavingsPercent(inputTokens, finalTokens),
       strategiesApplied: [...optimized.strategiesApplied, ...budgeted.strategiesApplied],
       skillsUsed: skillIds,
       durationMs,
@@ -128,6 +159,6 @@ export async function optimize(options: OptimizeOptions): Promise<OptimizeResult
     await setCached(hash, result)
   }
 
-  await setLastResult(result)
+  await setLastResult(result, cwd)
   return result
 }

@@ -51,6 +51,24 @@ export class GeminiAdapter implements LLMProvider {
   }
 }
 
+export class CopilotAdapter implements LLMProvider {
+  name: ProviderName = 'copilot'
+
+  formatPrompt(result: OptimizeResult): string {
+    return JSON.stringify(
+      {
+        messages: [{ role: 'user', content: result.optimized }],
+      },
+      null,
+      2,
+    )
+  }
+
+  async send(prompt: string): Promise<string> {
+    return `[mock-copilot] ${prompt.slice(0, 100)}...`
+  }
+}
+
 export class MockAdapter implements LLMProvider {
   name: ProviderName = 'mock'
 
@@ -67,6 +85,7 @@ const adapters: Record<ProviderName, LLMProvider> = {
   openai: new OpenAIAdapter(),
   claude: new ClaudeAdapter(),
   gemini: new GeminiAdapter(),
+  copilot: new CopilotAdapter(),
   mock: new MockAdapter(),
 }
 

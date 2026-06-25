@@ -4,15 +4,15 @@
 
 ## ภาพรวมระดับสูง
 
-Rimping เป็น monorepo บน Bun + TypeScript มีสองแพ็กเกจหลัก:
+Rimping เป็น monorepo บน Bun + TypeScript:
 
 ```
 rimping/
 ├── packages/
 │   ├── cli/          @rimping/cli   — คำสั่ง CLI (citty)
 │   └── core/         @rimping/core  — เครื่องมือปรับ prompt
-├── skills/           prompt skills ที่มาพร้อม (Markdown)
-├── .cursor/          ตัวอย่างการเชื่อมต่อ Cursor hook
+├── docs/             เว็บเอกสาร VitePress
+├── benchmarks/       harness เปรียบเทียบ
 └── turbo.json        จัดการ build
 ```
 
@@ -31,8 +31,10 @@ flowchart TB
   end
 
   subgraph hooks [rimping hooks]
-    HookScript[Cursor pre-send hook]
+    HookScript[Agent hook scripts]
     PreSend[preSend API]
+    PreShell[pre-shell / shell run]
+    PreRead[pre-read / post-read]
   end
 
   subgraph pipeline [Optimize Pipeline]
@@ -48,10 +50,13 @@ flowchart TB
     Config[config.json]
     Cache[cache]
     LastRun[last-run.json]
+    HookLog[hooks.log]
   end
 
   agents -->|"stdin JSON"| HookScript
   HookScript --> PreSend
+  HookScript --> PreShell
+  HookScript --> PreRead
   PreSend --> Skills
   Skills --> Context
   Context --> GitDiff
@@ -68,7 +73,7 @@ flowchart TB
   Provider --> LastRun
 ```
 
-**หมายเหตุ:** Git Diff เป็น sub-step ของ Context Builder ไม่ใช่ stage แยกใน pipeline จริง Claude และ agent อื่นยังไม่มี hook template ใน repo — เชื่อมได้ผ่าน `preSend()` API หรือ `rimping optimize` CLI Provider Adapter จัดรูปแบบ output สำหรับ LLM provider ไม่ใช่ transport กลับไปยัง agent
+**หมายเหตุ:** Git Diff เป็น sub-step ของ Context Builder ไม่ใช่ stage แยกใน pipeline จริง `rimping init` สร้างไฟล์ hook สำหรับ Cursor, Claude Code, Codex, Gemini, Copilot, Windsurf และ Antigravity Provider Adapter จัดรูปแบบ output สำหรับ LLM provider ไม่ใช่ transport กลับไปยัง agent
 
 ## Pipeline การปรับ Prompt
 
@@ -89,8 +94,8 @@ flowchart LR
 **โมดูล:** `packages/core/src/skill-engine.ts`
 
 1. `loadSkills(cwd)` — สแกน `./skills/` และ `~/.rimping/skills/` แยกวิเคราะห์ Markdown frontmatter
-2. `selectSkills()` — เลือก skill จาก `--skills` ที่ระบุ หรือ `autoDetectSkills()` จับคู่คำสำคัญ
-3. `composeSkills()` — นำกฎและคำแนะนำ transformation ของ skill มาต่อหน้า prompt
+2. `selectSkills()` — `--skills` / `defaultSkills` ที่ระบุ, ไม่เช่นนั้น `autoDetectSkills()` จับคู่คำสำคัญ, ไม่เช่นนั้นไม่ใช้ skill
+3. `composeSkills()` — ใช้กฎ transformation ของ skill กับ prompt
 
 Skills จัดอันดับตาม `priority` skill ระดับผู้ใช้ (`~/.rimping/skills/`) จะ override skill โปรเจกต์ที่มี `id` เดียวกัน
 
@@ -151,6 +156,7 @@ fetchGitDiff → parseUnifiedDiff → compressHunks → เสริมด้ว
 | `OpenAIAdapter` | รูปแบบ OpenAI chat |
 | `ClaudeAdapter` | รูปแบบ Anthropic Claude |
 | `GeminiAdapter` | รูปแบบ Google Gemini |
+| `CopilotAdapter` | รูปแบบ GitHub Copilot chat (เฉพาะ user message) |
 | `MockAdapter` | ส่งต่อตรง (สำหรับทดสอบ) |
 
 ## Cache
@@ -169,39 +175,92 @@ fetchGitDiff → parseUnifiedDiff → compressHunks → เสริมด้ว
 **โมดูล:** `config.ts`, `config-init.ts`, `resolve-options.ts`
 
 ```
-.rimping/config.json
+~/.rimping/config.json  (global)
+       +
+.rimping/config.json    (โปรเจกต์ — ชนะเมื่อ conflict)
        ↓
   loadConfig(cwd)
        ↓
   resolveOptimizeOptions()  — รวม CLI flags > config > ค่าเริ่มต้น
+  resolveShellOptions()     — รวม shell config
+  resolveReadOptions()      — รวม read config
+  mergeHooksConfig()        — hooks ระดับบน + override ต่อ agent + enabled
        ↓
-  optimize(options)
+  optimize() / preSend() / compressShellOutput() / compressReadContent()
 ```
 
-`resolve-options.ts` ยังรวม config `hooks` สำหรับเส้นทาง `preSend` hook
+เก็บ config แบบกระชับ: `hooks` ระดับบนเป็นค่าเริ่มต้นสำหรับทุก agent ส่วน `agents.<id>` ส่วนใหญ่มีแค่ `enabled` บล็อก `hooks` ต่อ agent จะถูกเขียนเฉพาะเมื่อต่างจากค่าเริ่มต้นระดับบน (`compactAgentConfig` ใน `config-init.ts`)
+
+`mergeHooksConfig(config, agentId)` ใน `resolve-options.ts` รวมตามลำดับ: ค่าเริ่มต้นในตัว → `hooks` ระดับบน → `agents.<id>.hooks` → ถ้า `agents.<id>.enabled === false` จะบังคับ `hooks.enabled` เป็น `false`
 
 ## การตรวจจับ Agent
 
 **โมดูล:** `packages/core/src/agent-detect.ts`
 
-`detectAgents(cwd)` ตรวจ filesystem และ PATH หาเครื่องมือ AI coding ที่รู้จัก `runDoctor(cwd)` รวมการตรวจจับ agent กับการตรวจ config และ agent skill
+`detectAgents(cwd)` ตรวจ filesystem และ PATH หาเครื่องมือ AI coding ที่รู้จัก `runDoctor(cwd)` รวมการตรวจจับ agent, config, agent skill และการลงทะเบียน hook ของ Cursor (pre-send, pre-shell, pre-read, post-read)
 
 ## การเชื่อมต่อ Hook
 
-**โมดูล:** `packages/core/src/hooks/pre-send.ts`
+**โมดูล:** `packages/core/src/hooks/`, `packages/core/src/hooks-init.ts`, `packages/cli/templates/agent-hooks/`
 
-ฟังก์ชัน `preSend()` เป็นจุดเข้า hook:
+Rimping เชื่อมสี่จุดเข้า hook ในแต่ละ agent ที่รองรับ:
+
+| คำสั่ง CLI | หน้าที่ |
+|-----------|---------|
+| `rimping hooks pre-send` | ปรับ prompt ผ่าน `preSend()` |
+| `rimping hooks pre-shell` | rewrite คำสั่ง shell/bash เป็น `rimping shell run` |
+| `rimping hooks pre-read` | ใส่ขีดจำกัดบรรทัดก่อนอ่านไฟล์ |
+| `rimping hooks post-read` | บีบอัดเนื้อหาไฟล์หลังอ่าน |
+
+ฟังก์ชัน `preSend()` เป็นจุดเข้า hook สำหรับ prompt:
 
 ```
 preSend(prompt)
-  → loadConfig + mergeHooksConfig
+  → loadConfig + mergeHooksConfig (override ต่อ agent)
   → ข้ามถ้าปิด / สั้นเกินไป
   → optimize(prompt)
   → ข้ามถ้าประหยัด < minSavingsPercent
   → คืน prompt ที่ปรับแล้ว (หรือเดิมเมื่อ error — fail open)
 ```
 
-CLI `hooks init` คัดลอก template จาก `packages/cli/templates/cursor-hooks/` ไปยัง `.cursor/hooks/`
+`rimping init` และ `rimping hooks init` คัดลอก template ต่อ agent จาก `packages/cli/templates/agent-hooks/` ไปยังตำแหน่งที่กำหนดใน `agent-hook-specs.ts` กลยุทธ์ merge แตกต่างกันตาม agent (`replace`, `merge-hooks`, `merge-named-hooks`) เพื่อรักษา config hook เดิม
+
+## Shell Output Compression
+
+**โมดูล:** `packages/core/src/shell-output/`
+
+`compressShellOutput(command, raw)` บีบอัด terminal output ก่อนเข้า agent context:
+
+```
+git status / cargo test / rg → command-specific filter → generic (ansi, dedupe) → budget-trim
+```
+
+Hook `pre-shell` rewrite คำสั่ง shell ของ agent ให้ผ่าน `rimping shell run`
+
+## File Read Compression
+
+**โมดูล:** `packages/core/src/file-read/`
+
+Read hook ดักจับการอ่านไฟล์ของ agent:
+
+```
+pre-read  → ใส่ขีดจำกัด maxLines (autoLimit)
+post-read → compressReadContent (ตัด comment, จำกัดบรรทัด, budget-trim)
+```
+
+`compressReadContent()` ทำความสะอาด whitespace, ตัด comment สำหรับไฟล์โค้ด, จำกัดบรรทัด และบังคับงบ token ควบคุมโดยส่วน `read` ใน config
+
+## Hook Logging
+
+**โมดูล:** `packages/core/src/hooks/log.ts`
+
+เมื่อเปิด `hooks.logStats` แต่ละการรัน hook จะ append JSON line ลง `.rimping/hooks.log` พร้อม preview prompt, explain steps, การประหยัด token และ agent ที่อนุมาน `rimping hooks log` และ `rimping stats` อ่านข้อมูลนี้
+
+## Self-Update
+
+**โมดูล:** `packages/core/src/self-update.ts`
+
+`rimping update` ตรวจแหล่งติดตั้ง (GitHub checkout vs npm) เปรียบเทียบเวอร์ชัน และรัน `runSelfUpdate()` รองรับ `--check` และ `--dry-run`
 
 ## ชั้น CLI
 
@@ -211,13 +270,20 @@ CLI `hooks init` คัดลอก template จาก `packages/cli/templates/c
 
 | คำสั่ง | โมดูล core |
 |--------|-----------|
-| `init` | `config-init.ts` |
+| `init` | `config-init.ts`, `hooks-init.ts` |
 | `doctor` | `agent-detect.ts` |
 | `optimize` | `pipeline.ts` |
 | `stats` | `cache.ts`, `pipeline.ts` |
 | `explain` | `pipeline.ts` |
 | `skills init` | `agent-skills-init.ts` |
 | `hooks init` | `hooks-init.ts` |
+| `hooks pre-send` | `hooks/pre-send.ts` |
+| `hooks pre-shell` | `shell-output/pre-shell.ts` |
+| `hooks pre-read` | `file-read/pre-read.ts` |
+| `hooks post-read` | `file-read/post-read.ts` |
+| `hooks log` | `hooks/log.ts` |
+| `shell run` | `shell-output/run.ts` |
+| `update` | `self-update.ts` |
 
 ## ระบบ Type
 
@@ -262,6 +328,8 @@ interface OptimizeResult {
 
 ## Build และทดสอบ
 
-- **Build:** Turbo monorepo — `bun run build` compile ทั้งสองแพ็กเกจ
+- **Build:** Turbo monorepo — `bun run build` compile ทุกแพ็กเกจ
+- **Docs:** `bun run docs:dev` — VitePress dev server
+- **Benchmarks:** `bun run benchmark` — harness เปรียบเทียบแบบ offline
 - **ทดสอบ:** Bun test runner — `packages/core/test/` สะท้อนโครงสร้าง `src/`
 - **Typecheck:** `bun run typecheck` ทุกแพ็กเกจ

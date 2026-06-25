@@ -27,6 +27,9 @@ bun run build
 | `bun run typecheck` | ตรวจ type ทุกแพ็กเกจ |
 | `bun run rimping` | รัน CLI โหมดพัฒนา |
 | `bun test` | รันเทสต์ (จากไดเรกทอรีแพ็กเกจ) |
+| `bun run benchmark` | รัน benchmark harness (ไม่ต้องใช้ API key) |
+| `bun run docs:dev` | เริ่ม VitePress docs dev server |
+| `bun run docs:build` | Build เว็บเอกสาร |
 
 ### โครงสร้างแพ็กเกจ
 
@@ -37,7 +40,8 @@ packages/
 │   │   ├── index.ts              จุดเข้า CLI (citty)
 │   │   └── commands/             หนึ่งไฟล์ต่อคำสั่ง
 │   └── templates/
-│       └── cursor-hooks/         template hook สำหรับ `hooks init`
+│       ├── agent-hooks/          template hook ต่อ agent สำหรับ `init` / `hooks init`
+│       └── config/               template config เริ่มต้น
 └── core/
     └── src/
         ├── index.ts              export API สาธารณะ
@@ -49,8 +53,14 @@ packages/
         ├── cache.ts              cache ผลลัพธ์ prompt
         ├── config.ts             schema และ validate config
         ├── agent-detect.ts       ตรวจจับ AI agent
+        ├── agent-hook-specs.ts   ตำแหน่ง hook และกลยุทธ์ merge ต่อ agent
         ├── hooks/
-        │   └── pre-send.ts       จุดเข้า hook
+        │   ├── pre-send.ts       จุดเข้า hook สำหรับ prompt
+        │   ├── agent.ts          resolve config hook ต่อ agent
+        │   └── log.ts            บันทึก log การรัน hook
+        ├── file-read/            ดักจับและบีบอัด read tool
+        ├── shell-output/         rewrite คำสั่ง shell และบีบอัด output
+        ├── self-update.ts        ตรวจเวอร์ชันและติดตั้ง CLI
         ├── adapters/             formatter ตาม provider
         ├── git-diff/             ดึง, แยกวิเคราะห์, บีบอัด diff
         └── memory/               memory store (mock เป็นค่าเริ่มต้น)
@@ -75,8 +85,17 @@ import {
   runDoctor,
   detectAgents,
   initAgentSkills,
-  initCursorHooks,
+  initAgentHooks,
+  compressShellOutput,
+  compressReadContent,
+  resolvePreRead,
+  resolvePostRead,
   getCacheStats,
+  getCacheStatsByDate,
+  readHookLogs,
+  appendHookLog,
+  checkForUpdate,
+  runSelfUpdate,
   estimateTokens,
 } from '@rimping/core'
 ```
@@ -91,7 +110,7 @@ const result = await optimize({
   diff: true,
   maxTokens: 4000,
   provider: 'openai',
-  skills: ['software-engineer'],
+  skills: ['my-skill'],
   cwd: process.cwd(),
   useCache: true,
 })
@@ -110,6 +129,16 @@ const { text, optimized, stats, skipped } = await preSend(userPrompt, {
 ```
 
 เหตุผลที่ข้าม: `disabled`, `too-short`, `low-savings`, `error`
+
+### Shell และ read hooks
+
+```typescript
+import { compressShellOutput, resolvePreRead, resolvePostRead } from '@rimping/core'
+
+const shell = compressShellOutput('git status', rawOutput, { maxTokens: 4000 })
+const preRead = resolvePreRead({ path: 'src/foo.ts', limit: undefined }, config)
+const postRead = resolvePostRead({ path: 'src/foo.ts', content: fileText }, config)
+```
 
 ## เพิ่ม Prompt Skill
 
@@ -150,7 +179,7 @@ rimping optimize --explain "deploy my app to k8s cluster prod"
 - Frontmatter แยกวิเคราะห์โดย `packages/core/src/utils/markdown.ts`
 - ส่วนที่ดึง: `Goal`, `Rules`, `Transformation`, `Output Style`
 - `autoDetectSkills()` นับคำ trigger ที่ตรงกัน threshold เริ่มต้น 2
-- `selectSkills()` รวม ID ที่ระบุ, `defaultSkills` จาก config และที่ตรวจจับอัตโนมัติ
+- `selectSkills()` ลำดับการเลือก: `--skills` / `defaultSkills` ที่ระบุ → ตรวจจับอัตโนมัติจาก triggers → ไม่ใช้ skill
 
 ## เพิ่มกลยุทธ์ Optimizer
 
@@ -209,9 +238,9 @@ export const myCommand = defineCommand({
 2. ลงทะเบียนใน `subCommands` ที่ `packages/cli/src/index.ts`
 3. export logic core ใหม่จาก `packages/core/src/index.ts` ถ้าจำเป็น
 
-## การเชื่อมต่อ Hook (นอก Cursor)
+## การเชื่อมต่อ Hook
 
- editor หรือ agent ที่รองรับ pre-submit hook สามารถเรียก `preSend()`:
+`rimping init` สร้าง template hook ต่อ agent ที่เรียกคำสั่ง CLI hook สำหรับการเชื่อมต่อแบบกำหนดเอง เรียก API ของ core โดยตรง:
 
 ```typescript
 #!/usr/bin/env bun
@@ -227,7 +256,9 @@ if (optimized && stats) {
 console.log(text)
 ```
 
-อ่าน prompt จาก stdin เขียน prompt ที่ปรับแล้วไป stdout hook ควร fail open — คืน prompt เดิมเมื่อ error
+อ่าน stdin เขียน output ที่ปรับแล้วไป stdout Hook ต้อง fail open — คืนข้อมูลเดิมเมื่อเกิด error
+
+เปิด `hooks.logStats` เพื่อบันทึกการรันลง `.rimping/hooks.log` สำหรับ debug ผ่าน `rimping hooks log`
 
 ## การทดสอบ
 
@@ -298,9 +329,11 @@ rimping explain
 # ข้าม cache ระหว่างพัฒนา
 rimping optimize --no-cache "prompt"
 
-# ผลลัพธ์ JSON สำหรับสคริปต์
-rimping optimize --json "prompt" | jq '.stats'
-rimping doctor --json | jq '.issues'
+# ดู hook log
+rimping hooks log --last 5
+
+# ตรวจอัปเดต CLI
+rimping update --check
 ```
 
 ## รูปแบบการเชื่อมต่อที่พบบ่อย

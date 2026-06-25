@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import consola from 'consola'
+import { muted, title } from '../style.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -65,7 +66,7 @@ export const skillsInitCommand = defineCommand({
     }
 
     consola.log('')
-    consola.log('Rimping Agent Skills')
+    consola.log(title('Rimping Agent Skills'))
     consola.log('')
 
     if (result.created.length > 0) {
@@ -73,7 +74,7 @@ export const skillsInitCommand = defineCommand({
         consola.success(`Created ${file}`)
       }
       consola.log('')
-      consola.log('Customize it for your project domain terms and conventions.')
+      consola.log(muted('Customize it for your project domain terms and conventions.'))
     }
 
     if (result.skipped.length > 0) {
@@ -83,7 +84,7 @@ export const skillsInitCommand = defineCommand({
     }
 
     if (result.created.length === 0 && result.skipped.length === 0) {
-      consola.log('Nothing to do.')
+      consola.log(muted('Nothing to do.'))
     }
 
     consola.log('')

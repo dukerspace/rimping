@@ -9,6 +9,7 @@ import {
   readHookLogs,
 } from '@rimping/core'
 import consola from 'consola'
+import { divider, dimText, fail, label, muted, section, title } from '../style.js'
 
 export const hooksLogCommand = defineCommand({
   meta: {
@@ -48,13 +49,15 @@ export const hooksLogCommand = defineCommand({
     const entries = await readHookLogs(cwd, { last: limit })
 
     if (entries.length === 0) {
-      consola.log('Rimping Hook Log')
-      consola.log('─'.repeat(40))
-      consola.log(`Log file: ${logPath}`)
+      consola.log(title('Rimping Hook Log'))
+      consola.log(divider())
+      consola.log(label('Log file:', logPath))
       if (!hooks.logStats) {
-        consola.log('hooks.logStats is false — enable it in .rimping/config.json to record hook runs')
+        consola.log(
+          muted('hooks.logStats is false — enable it in .rimping/config.json to record hook runs'),
+        )
       } else {
-        consola.log('No hook runs logged yet. Submit a prompt in Cursor to generate entries.')
+        consola.log(muted('No hook runs logged yet. Submit a prompt in Cursor to generate entries.'))
       }
       return
     }
@@ -66,34 +69,47 @@ export const hooksLogCommand = defineCommand({
       return
     }
 
-    consola.log('Rimping Hook Log')
-    consola.log('─'.repeat(40))
-    consola.log(`Log file: ${logPath}`)
-    consola.log(`Showing last ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}`)
+    consola.log(title('Rimping Hook Log'))
+    consola.log(divider())
+    consola.log(label('Log file:', logPath))
+    consola.log(
+      muted(`Showing last ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}`),
+    )
     consola.log('')
 
     for (const entry of entries) {
-      consola.log(formatHookLogSummary(entry))
+      consola.log(section(formatHookLogSummary(entry)))
 
-      if (entry.result.explain && entry.result.explain.length > 0) {
+      if (entry.event === 'pre-send' && entry.result.explain && entry.result.explain.length > 0) {
         for (const step of entry.result.explain) {
           const detail = step.detail ? ` — ${step.detail}` : ''
           consola.log(
-            `  ${step.stage}${step.strategy ? `/${step.strategy}` : ''}: ${step.tokensBefore}→${step.tokensAfter}${detail}`,
+            dimText(
+              `  ${step.stage}${step.strategy ? `/${step.strategy}` : ''}: ${step.tokensBefore}→${step.tokensAfter}${detail}`,
+            ),
           )
         }
       }
 
-      if (entry.input.extraKeys.length > 0) {
-        consola.log(`  input keys: ${entry.input.extraKeys.join(', ')}`)
+      if (entry.event === 'pre-send') {
+        if (entry.input.extraKeys.length > 0) {
+          consola.log(dimText(`  input keys: ${entry.input.extraKeys.join(', ')}`))
+        }
+        if (entry.input.promptPreview) {
+          consola.log(dimText(`  preview: ${entry.input.promptPreview}`))
+        }
       }
 
-      if (entry.input.promptPreview) {
-        consola.log(`  preview: ${entry.input.promptPreview}`)
+      if (entry.event === 'shell-run' && entry.result.stats?.strategiesApplied?.length) {
+        consola.log(dimText(`  strategies: ${entry.result.stats.strategiesApplied.join(', ')}`))
+      }
+
+      if (entry.event === 'post-read' && entry.result.stats?.strategiesApplied?.length) {
+        consola.log(dimText(`  strategies: ${entry.result.stats.strategiesApplied.join(', ')}`))
       }
 
       if (entry.error) {
-        consola.log(`  error: ${entry.error}`)
+        consola.log(fail(`  error: ${entry.error}`))
       }
 
       consola.log('')

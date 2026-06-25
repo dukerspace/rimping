@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "pre_user_prompt": [
+      {
+        "command": "rimping hooks pre-send",
+        "show_output": true
+      }
+    ],
+    "pre_tool_use": [
+      {
+        "command": "rimping hooks pre-shell",
+        "show_output": true
+      }
+    ],
+    "pre_read_code": [
+      {
+        "command": "rimping hooks pre-read",
+        "show_output": true
+      }
+    ],
+    "post_read_code": [
+      {
+        "command": "rimping hooks post-read",
+        "show_output": true
+      }
+    ]
+  }
+}

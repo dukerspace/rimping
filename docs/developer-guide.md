@@ -27,6 +27,9 @@ bun run build
 | `bun run typecheck` | Type-check all packages |
 | `bun run rimping` | Run CLI in dev mode |
 | `bun test` | Run tests (from package directory) |
+| `bun run benchmark` | Run benchmark harness (no API key required) |
+| `bun run docs:dev` | Start VitePress docs dev server |
+| `bun run docs:build` | Build documentation site |
 
 ### Package structure
 
@@ -37,7 +40,8 @@ packages/
 │   │   ├── index.ts              CLI entry (citty)
 │   │   └── commands/             one file per command
 │   └── templates/
-│       └── cursor-hooks/         hook templates for `hooks init`
+│       ├── agent-hooks/          per-agent hook templates for `init` / `hooks init`
+│       └── config/               default config template
 └── core/
     └── src/
         ├── index.ts              public API exports
@@ -49,8 +53,14 @@ packages/
         ├── cache.ts              prompt result caching
         ├── config.ts             config schema & validation
         ├── agent-detect.ts       AI agent probing
+        ├── agent-hook-specs.ts   per-agent hook paths and merge strategies
         ├── hooks/
-        │   └── pre-send.ts       hook entry point
+        │   ├── pre-send.ts       prompt hook entry point
+        │   ├── agent.ts          per-agent hook config resolution
+        │   └── log.ts            hook run logging
+        ├── file-read/            read tool interception and compression
+        ├── shell-output/         shell command rewrite and output compression
+        ├── self-update.ts        CLI version check and install
         ├── adapters/             provider formatters
         ├── git-diff/             diff fetch, parse, compress
         └── memory/               memory store (mock default)
@@ -75,8 +85,17 @@ import {
   runDoctor,
   detectAgents,
   initAgentSkills,
-  initCursorHooks,
+  initAgentHooks,
+  compressShellOutput,
+  compressReadContent,
+  resolvePreRead,
+  resolvePostRead,
   getCacheStats,
+  getCacheStatsByDate,
+  readHookLogs,
+  appendHookLog,
+  checkForUpdate,
+  runSelfUpdate,
   estimateTokens,
 } from '@rimping/core'
 ```
@@ -91,7 +110,7 @@ const result = await optimize({
   diff: true,
   maxTokens: 4000,
   provider: 'openai',
-  skills: ['software-engineer'],
+  skills: ['my-skill'],
   cwd: process.cwd(),
   useCache: true,
 })
@@ -110,6 +129,16 @@ const { text, optimized, stats, skipped } = await preSend(userPrompt, {
 ```
 
 Skip reasons: `disabled`, `too-short`, `low-savings`, `error`.
+
+### Shell and read hooks
+
+```typescript
+import { compressShellOutput, resolvePreRead, resolvePostRead } from '@rimping/core'
+
+const shell = compressShellOutput('git status', rawOutput, { maxTokens: 4000 })
+const preRead = resolvePreRead({ path: 'src/foo.ts', limit: undefined }, config)
+const postRead = resolvePostRead({ path: 'src/foo.ts', content: fileText }, config)
+```
 
 ## Adding a Prompt Skill
 
@@ -150,7 +179,7 @@ rimping optimize --explain "deploy my app to k8s cluster prod"
 - Frontmatter parsed by `packages/core/src/utils/markdown.ts`
 - Sections extracted: `Goal`, `Rules`, `Transformation`, `Output Style`
 - `autoDetectSkills()` counts trigger keyword matches; threshold defaults to 2
-- `selectSkills()` merges explicit IDs, config `defaultSkills`, and auto-detected
+- `selectSkills()` resolution order: explicit `--skills` / `defaultSkills` → auto-detected triggers → none
 
 ## Adding an Optimizer Strategy
 
@@ -209,9 +238,9 @@ export const myCommand = defineCommand({
 2. Register in `packages/cli/src/index.ts` `subCommands`
 3. Export any new core logic from `packages/core/src/index.ts` if needed
 
-## Hook Integration (non-Cursor)
+## Hook Integration
 
-Any editor or agent that supports a pre-submit hook can call `preSend()`:
+`rimping init` scaffolds per-agent hook templates that call the CLI hook commands. For custom integrations, call core APIs directly:
 
 ```typescript
 #!/usr/bin/env bun
@@ -227,7 +256,9 @@ if (optimized && stats) {
 console.log(text)
 ```
 
-Read stdin prompt, write optimized prompt to stdout. The hook should fail open — return the original prompt on any error.
+Read stdin, write optimized output to stdout. Hooks must fail open — return the original input on any error.
+
+Enable `hooks.logStats` to record runs in `.rimping/hooks.log` for debugging via `rimping hooks log`.
 
 ## Testing
 
@@ -302,9 +333,11 @@ rimping explain
 # Bypass cache during iteration
 rimping optimize --no-cache "prompt"
 
-# JSON output for scripting
-rimping optimize --json "prompt" | jq '.stats'
-rimping doctor --json | jq '.issues'
+# Inspect hook logs
+rimping hooks log --last 5
+
+# Check for CLI updates
+rimping update --check
 ```
 
 ## Common Integration Patterns
