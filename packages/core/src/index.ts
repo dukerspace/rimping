@@ -14,6 +14,13 @@ export type {
 } from './types.js'
 
 export { estimateTokens, tokenSavingsPercent } from './tokenizer.js'
+export { compressContent, expandContent } from './content-compression/index.js'
+export type {
+  ContentType,
+  DetectedContentType,
+  CompressContentOptions,
+  CompressContentResult,
+} from './content-compression/index.js'
 export { loadSkills, selectSkills, composeSkills, autoDetectSkills, clearSkillCache } from './skill-engine.js'
 export { buildContext } from './context-builder.js'
 export { optimizeText, strategies, truncateTail } from './optimizer.js'

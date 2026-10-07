@@ -1,0 +1,23 @@
+version: 1
+
+budgets:
+  tiny:
+    max_tokens: 5000
+    max_agents: 1
+    max_skills: 1
+    max_principles: 2
+    max_escalations: 0
+
+  normal:
+    max_tokens: 20000
+    max_agents: 1
+    max_skills: 2
+    max_principles: 3
+    max_escalations: 1
+
+  hard:
+    max_tokens: 50000
+    max_agents: 3
+    max_skills: 4
+    max_principles: 5
+    max_escalations: 2

@@ -1,6 +1,7 @@
 import { estimateTokens, tokenSavingsPercent } from '../tokenizer.js'
 import { compressGeneric } from '../shell-output/filters/generic.js'
 import { trimToTokenBudget } from '../shell-output/budget-trim.js'
+import { compressContent } from '../content-compression/index.js'
 
 export interface ReadCompressOptions {
   maxTokens?: number
@@ -18,12 +19,23 @@ export interface ReadCompressResult {
 const CODE_EXTENSIONS = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|swift|rb|php|cs|vue|svelte)$/i
 
 function stripCodeComments(text: string): string {
-  return text
-    .replace(/\/\/.*$/gm, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*#(?!!).*/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  const lines = text.split('\n')
+  const out: string[] = []
+  const importantComment = /(?:\bTODO\b|\bFIXME\b|\bHACK\b|\bNOTE\b|\bLICENSE\b|\beslint\b|\btslint\b|\bistanbul\b|\bcoverage\b|@ts-)/i
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    if (/^\s*\/\*.*\*\//.test(line)) {
+      if (importantComment.test(line)) out.push(line)
+      continue
+    }
+
+    if (/^\s*\/\//.test(line) && !/^\s*\/\/\s*(?:TODO|FIXME|HACK|NOTE|@ts-|eslint|istanbul|coverage|# sourceMappingURL)/i.test(line)) continue
+    if (/^\s*#/.test(line) && !/^\s*#!/.test(line) && !/^\s*#\s*(?:TODO|FIXME|HACK|NOTE)/i.test(line)) continue
+    out.push(line)
+  }
+
+  return out.join('\n').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim()
 }
 
 function trimLines(text: string, maxLines: number): string {
@@ -41,18 +53,28 @@ export function compressReadContent(
   const strategiesApplied: string[] = []
   let text = content
 
-  const generic = compressGeneric(text)
-  if (generic !== text) {
-    text = generic
-    strategiesApplied.push('generic')
-  }
-
-  if (!filePath || CODE_EXTENSIONS.test(filePath)) {
+  const isCode = Boolean(filePath && CODE_EXTENSIONS.test(filePath))
+  if (isCode) {
     const stripped = stripCodeComments(text)
     if (stripped !== text) {
       text = stripped
       strategiesApplied.push('strip-comments')
     }
+  } else {
+    const generic = compressGeneric(text)
+    if (generic !== text) {
+      text = generic
+      strategiesApplied.push('generic')
+    }
+  }
+
+  const routed = compressContent(content, { type: isCode ? 'code' : 'auto' })
+  if (
+    routed.compressedTokens < estimateTokens(text) ||
+    ((routed.type === 'json' || routed.type === 'logs') && routed.compressedTokens < originalTokens)
+  ) {
+    text = routed.text
+    strategiesApplied.push(...routed.strategiesApplied)
   }
 
   if (options.maxLines) {

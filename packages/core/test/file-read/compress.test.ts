@@ -3,6 +3,7 @@ import { compressReadContent } from '../../src/file-read/compress.js'
 import { extractReadContent, extractReadLimit, extractReadPath } from '../../src/file-read/parse.js'
 import { resolvePostRead } from '../../src/file-read/post-read.js'
 import { DEFAULT_READ } from '../../src/resolve-options.js'
+import { expandContent } from '../../src/content-compression/index.js'
 
 describe('extractReadPath', () => {
   it('reads path from common tool_input keys', () => {
@@ -32,11 +33,44 @@ describe('compressReadContent', () => {
     expect(result.savingsPercent).toBeGreaterThan(0)
   })
 
+  it('preserves code strings, diagnostics, and compiler directives', () => {
+    const raw = [
+      'const url = "https://example.com/path"; // keep the URL intact',
+      '// @ts-ignore -- required for this generated type',
+      '// TODO: preserve this implementation note',
+      'throw new Error("failure");',
+    ].join('\n')
+    const result = compressReadContent(raw, {}, 'src/foo.ts')
+    expect(result.text).toContain('https://example.com/path')
+    expect(result.text).toContain('// @ts-ignore')
+    expect(result.text).toContain('// TODO:')
+    expect(result.text).toContain('throw new Error("failure")')
+  })
+
+  it('does not rewrite repeated source lines into invalid counted lines', () => {
+    const raw = 'const value = 1;\nconst value = 1;'
+    const result = compressReadContent(raw, {}, 'src/foo.ts')
+    expect(result.text).toBe(raw)
+  })
+
   it('caps lines when maxLines is set', () => {
     const raw = Array.from({ length: 50 }, (_, i) => `line ${i}`).join('\n')
     const result = compressReadContent(raw, { maxLines: 10 })
     expect(result.strategiesApplied).toContain('line-cap')
     expect(result.text).toContain('...[truncated')
+  })
+
+  it('compresses structured JSON reads while preserving every record', () => {
+    const records = Array.from({ length: 35 }, (_, id) => ({
+      record_identifier: id,
+      response_status_code: id === 34 ? 500 : 200,
+      message_detail: id === 34 ? 'database unavailable' : 'ok',
+    }))
+    const raw = JSON.stringify(records, null, 2)
+    const result = compressReadContent(raw, {}, 'responses.json')
+
+    expect(result.strategiesApplied).toContain('json-row-table')
+    expect(JSON.parse(expandContent(result.text))).toEqual(records)
   })
 })
 
@@ -55,7 +89,7 @@ describe('resolvePostRead', () => {
   })
 
   it('returns compressed additional_context when enabled', () => {
-    const content = `// comment\n${'const x = 1;\n'.repeat(40)}`
+    const content = `// comment\n${'// This explanation is obsolete and repeats across generated source files.\nconst x = 1;\n'.repeat(40)}`
     const result = resolvePostRead(
       {
         tool_name: 'Read',

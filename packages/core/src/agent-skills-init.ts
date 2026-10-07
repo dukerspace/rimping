@@ -1,4 +1,4 @@
-import { access, mkdir, writeFile } from 'node:fs/promises'
+import { access, cp, mkdir, rm } from 'node:fs/promises'
 import { constants, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
@@ -6,7 +6,6 @@ export interface AgentSkillsInitOptions {
   cwd?: string
   force?: boolean
   dryRun?: boolean
-  templateContent: string
 }
 
 export interface AgentSkillsInitResult {
@@ -15,6 +14,7 @@ export interface AgentSkillsInitResult {
   root: string
 }
 
+const SOURCE_SKILL_DIR = join('.skills', 'rimping-guidelines')
 const SKILL_DIR = join('.agents', 'skills', 'rimping-guidelines')
 const SKILL_FILE = 'SKILL.md'
 
@@ -53,6 +53,7 @@ export async function initAgentSkills(
 ): Promise<AgentSkillsInitResult> {
   const cwd = options.cwd ?? process.cwd()
   const root = join(cwd, SKILL_DIR)
+  const source = join(cwd, SOURCE_SKILL_DIR)
   const skillPath = join(root, SKILL_FILE)
   const created: string[] = []
   const skipped: string[] = []
@@ -69,8 +70,10 @@ export async function initAgentSkills(
     return { created, skipped, root }
   }
 
-  await mkdir(root, { recursive: true })
-  await writeFile(skillPath, options.templateContent, 'utf-8')
+  await access(join(source, SKILL_FILE), constants.R_OK)
+  await mkdir(dirname(root), { recursive: true })
+  if (options.force) await rm(root, { recursive: true, force: true })
+  await cp(source, root, { recursive: true, force: true })
   created.push(skillPath)
 
   return { created, skipped, root }

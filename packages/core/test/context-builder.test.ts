@@ -35,6 +35,21 @@ describe('buildContext', () => {
     expect(estimateTokens(result.text)).toBeGreaterThan(estimateTokens('review auth'))
   })
 
+  it('compresses repetitive JSON attached as file context', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'rimping-context-'))
+    const records = Array.from({ length: 25 }, (_, id) => ({
+      request_identifier: `request-${id}`,
+      status_code: 200,
+      message_detail: 'operation completed',
+    }))
+    await writeFile(join(tempDir, 'results.json'), JSON.stringify(records, null, 2))
+
+    const result = await buildContext({ prompt: 'review these results', files: ['results.json'], cwd: tempDir })
+    expect(result.text).toContain('__rimping_row_table_v1__')
+    expect(result.text).toContain('request-24')
+    expect(result.text).not.toContain('results.json (truncated)')
+  })
+
   it('skips missing files without error', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'rimping-context-'))
     const result = await buildContext({

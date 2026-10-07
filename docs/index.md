@@ -37,7 +37,7 @@ features:
     details: Intercept file reads to inject line limits and strip comments from large files.
   - icon: 🐚
     title: Shell compression
-    details: Rewrite shell tool calls and compress git status, test output, and grep results.
+    details: Rewrite shell tool calls and compress git status into branch/count summaries, test output, and grep results.
   - icon: 🌐
     title: Multi-provider
     details: Output adapters for OpenAI, Claude, Gemini, Copilot, and mock testing.
@@ -77,5 +77,7 @@ Agent hooks (parallel):
 | Guide | Description |
 |-------|-------------|
 | [User Guide](./user-guide) | Installation, commands, config, skills, hooks |
+| [Leanstack](./leanstack) | File pack: classify, one skill, verify, stop |
+| [Working guide](./leanstack-guide) | How Leanstack routes, verifies, and stops |
 | [Architecture](./architecture) | Pipeline stages, modules, data flow |
 | [Developer Guide](./developer-guide) | API, extending skills, testing |

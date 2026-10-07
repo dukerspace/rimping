@@ -64,7 +64,7 @@ Detects installed AI coding agents and validates your Rimping setup: config, age
 rimping skills init
 ```
 
-Creates `.agents/skills/rimping-guidelines/SKILL.md` — engineering discipline for AI assistants (think first, minimal solutions, surgical changes, verify with tests).
+Copies the entire `.skills/rimping-guidelines/` folder to `.agents/skills/rimping-guidelines/`, including `SKILL.md` and any supporting files. The source folder must exist in the target project.
 
 ### 4. Re-run hook setup (optional)
 
@@ -84,7 +84,7 @@ rimping hooks init -g       # global hooks (~/.cursor, ~/.claude, etc.)
 | `optimize` | Run the optimization pipeline on a prompt |
 | `stats` | Cache stats, hook run history, last optimization |
 | `explain` | Pipeline breakdown from the last `optimize` run |
-| `skills init` | Install `rimping-guidelines` agent skill |
+| `skills init` | Copy `.skills/rimping-guidelines/` into `.agents/skills/` |
 | `hooks init` | Scaffold agent hook files only |
 | `hooks log` | View or clear `.rimping/hooks.log` |
 | `shell run` | Run a command and print compressed output |
@@ -149,11 +149,11 @@ rimping explain
 
 ### `skills init`
 
-Initialize the `rimping-guidelines` agent skill template in `.agents/skills/`.
+Copy `.skills/rimping-guidelines/` into `.agents/skills/rimping-guidelines/`. Keep the skill source and any supporting files in `.skills/`; `skills init` copies the whole folder. The source folder must exist in the target project.
 
 | Flag | Description |
 |------|-------------|
-| `--force` | Overwrite existing `SKILL.md` |
+| `--force` | Replace the existing destination skill folder |
 | `--dry-run` | Preview without writing |
 | `--json` | Output as JSON |
 | `--cwd <path>` | Target directory |
@@ -208,12 +208,27 @@ rimping hooks log --clear
 
 ### `shell run <command>`
 
-Run a shell command and print compressed output (for agent context).
+Run a shell command and print compressed output (for agent context). Recognized commands get command-specific filters before generic ANSI stripping and token budget trimming.
+
+| Command pattern | Compression |
+|-----------------|-------------|
+| `git status` | Branch name plus staged/unstaged/untracked counts (or `clean`) |
+| `git diff` | ANSI strip and line dedupe |
+| `cargo test`, `pytest`, `npm test`, `bun test`, … | Keep failures and summary; drop passing noise |
+| `rg`, `grep`, `git grep` | Group matches by file |
 
 ```bash
 rimping shell run "git status"
 rimping shell run "cargo test" --explain
 cat output.txt | rimping shell run "cargo test" --stdin
+```
+
+Example — `git status` with four modified and two untracked files compresses to:
+
+```
+branch:main
+unstaged:4
+untracked:2
 ```
 
 | Flag | Description |
@@ -402,7 +417,7 @@ Terse, imperative, etc.
 
 Agent skills live in `.agents/skills/` and guide AI coding assistant behavior — they are **not** part of the token optimization pipeline.
 
-Run `rimping skills init` to install `rimping-guidelines`, which encodes engineering discipline: think first, align before coding, minimal solutions, surgical changes, verify with tests, shared domain language.
+Run `rimping skills init` to copy `.skills/rimping-guidelines/` into `.agents/skills/rimping-guidelines/`. This installs the project-maintained source, including supporting files; use `--force` to replace an existing destination folder.
 
 ## Supported AI Agents
 
@@ -469,3 +484,9 @@ const { text, optimized, stats } = await preSend('my prompt')
 | Read output not compressed | Check `read.enabled` and `read.compressOutput`; verify `post-read` hook is registered |
 | Git diff not injected | Ensure you are in a git repo; use `--diff` or set `diff: true` |
 | Skill not applied | Create a skill in `skills/` or `~/.rimping/skills/`, check triggers match your prompt, or pass `--skills <id>` |
+
+## Leanstack
+
+Leanstack is a separate file pack for lean agent workflows (classify → one skill → verify → stop). It is not the `rimping optimize` pipeline. Install Cursor slash commands with `bun run plugin:install`.
+
+Full details → [Leanstack](./leanstack)

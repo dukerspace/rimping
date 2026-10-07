@@ -231,8 +231,28 @@ preSend(prompt)
 `compressShellOutput(command, raw)` บีบอัด terminal output ก่อนเข้า agent context:
 
 ```
-git status / cargo test / rg → command-specific filter → generic (ansi, dedupe) → budget-trim
+command-specific filter → generic (ตัด ANSI, dedupe) → budget-trim
 ```
+
+ตัวกรองตามคำสั่ง (`registry.ts`):
+
+| Filter | จับคู่ | พฤติกรรม |
+|--------|--------|----------|
+| `git-status` | `git status` | สรุปชื่อ branch และจำนวนไฟล์ แทนการลิสต์ทุก path |
+| `git-diff` | `git diff` | บีบอัดทั่วไป (ตัด ANSI, dedupe) |
+| `test-output` | `cargo test`, `pytest`, `npm test`, `bun test` ฯลฯ | เก็บ failure และบรรทัดสรุป ตัด noise ของเทสต์ที่ผ่าน |
+| `rg-grep` | `rg`, `grep`, `git grep` | จัดกลุ่ม match ตามไฟล์พร้อมจำนวนบรรทัด |
+
+การบีบอัด `git status` ย่อ porcelain output เป็นสรุปสั้น ๆ:
+
+```
+branch:main
+staged:2
+unstaged:4
+untracked:1
+```
+
+working tree สะอาดจะได้ `branch:<name>` กับ `clean` บรรทัด hint (`use "git add"…`) และข้อความ upstream ถูกตัดออก
 
 Hook `pre-shell` rewrite คำสั่ง shell ของ agent ให้ผ่าน `rimping shell run`
 

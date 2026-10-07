@@ -64,7 +64,7 @@ rimping doctor
 rimping skills init
 ```
 
-สร้าง `.agents/skills/rimping-guidelines/SKILL.md` — วินัยทางวิศวกรรมสำหรับ AI assistant (คิดก่อนเขียนโค้ด, โซลูชันขั้นต่ำ, แก้ไขเฉพาะจุด, ตรวจสอบด้วยเทสต์)
+คัดลอกทั้งโฟลเดอร์ `.skills/rimping-guidelines/` ไปยัง `.agents/skills/rimping-guidelines/` รวมถึง `SKILL.md` และไฟล์ประกอบ โดยต้องมีโฟลเดอร์ต้นทางในโปรเจกต์เป้าหมาย
 
 ### 4. ติดตั้ง hook ใหม่ (ไม่บังคับ)
 
@@ -84,7 +84,7 @@ rimping hooks init -g       # hook ระดับ global (~/.cursor, ~/.claude,
 | `optimize` | รัน pipeline ปรับ prompt |
 | `stats` | สถิติ cache, ประวัติ hook, การปรับครั้งล่าสุด |
 | `explain` | รายละเอียด pipeline จาก `optimize` ครั้งล่าสุด |
-| `skills init` | ติดตั้ง agent skill `rimping-guidelines` |
+| `skills init` | คัดลอก `.skills/rimping-guidelines/` ไปยัง `.agents/skills/` |
 | `hooks init` | สร้างไฟล์ hook อย่างเดียว |
 | `hooks log` | ดูหรือล้าง `.rimping/hooks.log` |
 | `shell run` | รันคำสั่งแล้วพิมพ์ output ที่บีบอัด |
@@ -149,11 +149,11 @@ rimping explain
 
 ### `skills init`
 
-สร้างเทมเพลต agent skill `rimping-guidelines` ใน `.agents/skills/`
+คัดลอกโฟลเดอร์ `.skills/rimping-guidelines/` ไปยัง `.agents/skills/rimping-guidelines/` ทั้งโฟลเดอร์ รวมถึงไฟล์ประกอบ โดยต้องมีโฟลเดอร์ต้นทางในโปรเจกต์เป้าหมาย
 
 | Flag | คำอธิบาย |
 |------|----------|
-| `--force` | เขียนทับ `SKILL.md` ที่มีอยู่ |
+| `--force` | แทนที่โฟลเดอร์ skill ปลายทางที่มีอยู่ |
 | `--dry-run` | แสดงผลโดยไม่เขียนไฟล์ |
 | `--json` | แสดงผลเป็น JSON |
 | `--cwd <path>` | ไดเรกทอรีเป้าหมาย |
@@ -208,11 +208,27 @@ rimping hooks log --clear
 
 ### `shell run <command>`
 
-รันคำสั่ง shell แล้วพิมพ์ output ที่บีบอัดแล้ว
+รันคำสั่ง shell แล้วพิมพ์ output ที่บีบอัดแล้ว คำสั่งที่รู้จักจะผ่านตัวกรองเฉพาะคำสั่งก่อนตัด ANSI และจำกัด token
+
+| รูปแบบคำสั่ง | การบีบอัด |
+|-------------|----------|
+| `git status` | ชื่อ branch กับจำนวน staged/unstaged/untracked (หรือ `clean`) |
+| `git diff` | ตัด ANSI และ dedupe บรรทัด |
+| `cargo test`, `pytest`, `npm test`, `bun test`, … | เก็บ failure และสรุป ตัด noise ของเทสต์ที่ผ่าน |
+| `rg`, `grep`, `git grep` | จัดกลุ่ม match ตามไฟล์ |
 
 ```bash
 rimping shell run "git status"
 rimping shell run "cargo test" --explain
+cat output.txt | rimping shell run "cargo test" --stdin
+```
+
+ตัวอย่าง — `git status` ที่มีไฟล์แก้ 4 ไฟล์และ untracked 2 ไฟล์ บีบอัดเป็น:
+
+```
+branch:main
+unstaged:4
+untracked:2
 ```
 
 | Flag | คำอธิบาย |
@@ -401,7 +417,7 @@ triggers: [keyword1, keyword2]
 
 Agent skills อยู่ใน `.agents/skills/` และกำหนดพฤติกรรม AI coding assistant — **ไม่** เป็นส่วนของ pipeline ปรับ token
 
-รัน `rimping skills init` เพื่อติดตั้ง `rimping-guidelines` ซึ่งกำหนดวินัยทางวิศวกรรม: คิดก่อน, ตกลงก่อนเขียนโค้ด, โซลูชันขั้นต่ำ, แก้ไขเฉพาะจุด, ตรวจสอบด้วยเทสต์, ใช้ภาษา domain ร่วมกัน
+รัน `rimping skills init` เพื่อคัดลอก `.skills/rimping-guidelines/` ไปยัง `.agents/skills/rimping-guidelines/` รวมถึงไฟล์ประกอบ ใช้ `--force` เพื่อแทนที่โฟลเดอร์ปลายทางที่มีอยู่
 
 ## AI Agent ที่รองรับ
 
@@ -468,3 +484,9 @@ const { text, optimized, stats } = await preSend('my prompt')
 | เนื้อหาไฟล์ไม่ถูกบีบอัด | ตรวจ `read.enabled` และ `read.compressOutput`; ตรวจว่า hook `post-read` ลงทะเบียนแล้ว |
 | ไม่มี git diff | ต้องอยู่ใน git repo ใช้ `--diff` หรือตั้ง `diff: true` |
 | Skill ไม่ถูกใช้ | สร้าง skill ใน `skills/` หรือ `~/.rimping/skills/` ตรวจว่า triggers ตรงกับ prompt หรือระบุ `--skills <id>` |
+
+## Leanstack
+
+Leanstack เป็นชุดไฟล์แยกสำหรับ workflow ของเอเจนต์แบบลีน (จัดประเภท → skill เดียว → ตรวจผล → หยุด) ไม่ใช่ pipeline ของ `rimping optimize` ติดตั้ง slash commands ของ Cursor ด้วย `bun run plugin:install`
+
+รายละเอียดเต็ม → [Leanstack](./leanstack)

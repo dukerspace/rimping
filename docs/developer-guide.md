@@ -23,12 +23,19 @@ bun run build
 | Command | Description |
 |---------|-------------|
 | `bun run build` | Build all packages via Turbo |
+| `bun run build:bin` | Compile a standalone `dist/rimping` binary (Bun `--compile`) |
 | `bun run dev` | Run dev watchers |
 | `bun run typecheck` | Type-check all packages |
 | `bun run rimping` | Run CLI in dev mode |
 | `bun test` | Run tests (from package directory) |
 | `bun run docs:dev` | Start VitePress docs dev server |
 | `bun run docs:build` | Build documentation site |
+| `bun run docs:preview` | Preview the built docs site locally |
+| `bun run benchmark` | Run full offline benchmark suite (tiers 1, 1b, 3) |
+| `bun run benchmark:tier1` | Offline prompt compression benchmarks |
+| `bun run benchmark:tier1b` | Shell output compression benchmarks |
+| `bun run benchmark:tier3` | Behavioral rubric benchmarks |
+| `bun run benchmark:report` | Regenerate benchmark report from results |
 
 ### Package structure
 
@@ -87,6 +94,8 @@ import {
   initAgentHooks,
   compressShellOutput,
   compressReadContent,
+  compressContent,
+  expandContent,
   resolvePreRead,
   resolvePostRead,
   getCacheStats,
@@ -137,6 +146,16 @@ import { compressShellOutput, resolvePreRead, resolvePostRead } from '@rimping/c
 const shell = compressShellOutput('git status', rawOutput, { maxTokens: 4000 })
 const preRead = resolvePreRead({ path: 'src/foo.ts', limit: undefined }, config)
 const postRead = resolvePostRead({ path: 'src/foo.ts', content: fileText }, config)
+```
+
+### Content-aware compression
+
+Use the exported compressor directly for tool payloads, files, or RAG chunks. `auto` detects JSON and repeated log lines; JSON row tables and log runs can be expanded with `expandContent` when the original representation is needed.
+
+```typescript
+const result = compressContent(toolOutput, { type: 'auto' })
+console.log(result.type, result.savingsPercent, result.strategiesApplied)
+const expanded = expandContent(result.text)
 ```
 
 ## Adding a Prompt Skill
@@ -259,6 +278,33 @@ Read stdin, write optimized output to stdout. Hooks must fail open — return th
 
 Enable `hooks.logStats` to record runs in `.rimping/hooks.log` for debugging via `rimping hooks log`.
 
+## Benchmarks
+
+The `benchmarks/` directory contains a full-matrix harness comparing rimping against other prompt-guideline tools (karpathy-skills, ponytail, mattpocock/skills, rtk). See `benchmarks/README.md` in the repo for methodology and tier details.
+
+| Tier | What it measures | API key required |
+|------|------------------|------------------|
+| **1** | Offline prompt token compression | No |
+| **1b** | Shell output compression | No |
+| **2** | Agentic LOC / time / safety on a fixture repo | Yes (manual Cursor sessions) |
+| **3** | Behavioral rubric (alignment, surgical, minimal, verify) | No |
+
+```bash
+# Quick offline run (no API key)
+bun run benchmark
+
+# Individual tiers
+bun run benchmark:tier1
+bun run benchmark:tier1b
+bun run benchmark:tier3
+bun run benchmark:report
+
+# Benchmark harness tests
+bun run benchmark:test
+```
+
+Results are written to `benchmarks/results/<YYYY-MM-DD>/report.md` (gitignored).
+
 ## Testing
 
 Tests use Bun's built-in test runner. Place tests under `packages/core/test/`, mirroring the `src/` layout.
@@ -294,13 +340,13 @@ describe('optimizeText', () => {
 
 ## Code Conventions
 
-Follow the project's `rimping-guidelines` skill (`.agents/skills/rimping-guidelines/SKILL.md`):
+Follow root [`AGENTS.md`](../AGENTS.md) (Lean Pstack). See [Leanstack](./leanstack) for the file pack. Skills live under `.agents/skills/`; product install for other repos remains `rimping skills init` → `.skills/rimping-guidelines/`.
 
-1. **Think first** — state assumptions, ask when unclear
+1. **Understand first** — read target code before editing
 2. **Minimal solution** — reuse existing code, no unnecessary abstractions
 3. **Surgical changes** — touch only what the task requires
-4. **Verify** — add tests for non-trivial logic
-5. **Shared language** — use consistent domain terms (`skill`, `pipeline`, `hunk`, etc.)
+4. **Verify** — name the check and its result
+5. **Shared language** — use consistent domain terms (`skill`, `pipeline`, `hunk`, `hook`)
 
 ### TypeScript
 

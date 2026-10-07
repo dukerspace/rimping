@@ -231,8 +231,28 @@ preSend(prompt)
 `compressShellOutput(command, raw)` compresses terminal output before it enters agent context:
 
 ```
-git status / cargo test / rg → command-specific filter → generic (ansi, dedupe) → budget-trim
+command-specific filter → generic (ansi strip, dedupe) → budget-trim
 ```
+
+Command-specific filters (`registry.ts`):
+
+| Filter | Matches | Behavior |
+|--------|---------|----------|
+| `git-status` | `git status` | Summarize branch and file counts instead of listing every path |
+| `git-diff` | `git diff` | Generic compression (ANSI strip, dedupe) |
+| `test-output` | `cargo test`, `pytest`, `npm test`, `bun test`, etc. | Keep failures and summary lines; drop passing test noise |
+| `rg-grep` | `rg`, `grep`, `git grep` | Group matches by file with line counts |
+
+`git status` compression collapses verbose porcelain output into a compact summary:
+
+```
+branch:main
+staged:2
+unstaged:4
+untracked:1
+```
+
+A clean working tree returns `branch:<name>` plus `clean`. Hint lines (`use "git add"…`) and upstream tracking messages are stripped.
 
 The `pre-shell` hook rewrites agent shell tool calls to route through `rimping shell run`.
 

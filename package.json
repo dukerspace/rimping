@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "build:bin": "mkdir -p dist && bun build --compile --minify --sourcemap=none --outfile dist/rimping packages/cli/src/index.ts",
     "postbuild": "bun link rimping",
     "postinstall": "mkdir -p node_modules/.bin && ln -sf ../../packages/cli/src/index.ts node_modules/.bin/rimping && chmod +x packages/cli/src/index.ts",
     "dev": "turbo run dev",
@@ -21,10 +22,13 @@
     "benchmark:tier2": "bun run benchmarks/run.ts --tier2",
     "benchmark:tier2-score": "bun run benchmarks/run.ts --tier2-score --report",
     "benchmark:tier3": "bun run benchmarks/run.ts --tier3",
+    "benchmark:token-savings": "bun run benchmarks/runners/token-savings.ts",
     "benchmark:report": "bun run benchmarks/run.ts --report",
     "benchmark:test": "bun test benchmarks/test",
     "clean": "turbo run clean && rm -rf node_modules",
     "rimping": "bun run --filter @rimping/cli start",
+    "plugin:validate": "bun run scripts/cursor-plugin.ts validate",
+    "plugin:install": "bun run scripts/cursor-plugin.ts install",
     "docs:dev": "bun run --filter @rimping/docs dev",
     "docs:build": "bun run --filter @rimping/docs build",
     "docs:preview": "bun run --filter @rimping/docs preview"

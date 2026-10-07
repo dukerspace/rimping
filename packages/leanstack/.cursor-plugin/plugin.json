@@ -1,0 +1,13 @@
+{
+  "name": "rimping",
+  "displayName": "Rimping",
+  "version": "0.1.0",
+  "description": "Leanstack workflow skills and commands for Cursor. Token optimization stays on the rimping CLI.",
+  "author": {
+    "name": "dukerspace"
+  },
+  "license": "MIT",
+  "keywords": ["rimping", "workflow", "leanstack"],
+  "skills": "./skills/",
+  "commands": "./commands/"
+}

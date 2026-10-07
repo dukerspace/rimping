@@ -1,13 +1,15 @@
 import { defineConfig } from 'vitepress'
 
+const base = '/rimping/'
+
 export default defineConfig({
   title: 'Rimping',
   description: 'Skill-based token optimization for LLM prompts',
-  base: '/rimping/',
+  base,
   cleanUrls: true,
   lastUpdated: true,
 
-  head: [['link', { rel: 'icon', href: '/favicon.svg' }]],
+  head: [['link', { rel: 'icon', href: `${base}favicon.svg` }]],
 
   locales: {
     root: {
@@ -18,6 +20,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'User Guide', link: '/user-guide' },
+          { text: 'Leanstack', link: '/leanstack' },
           { text: 'Architecture', link: '/architecture' },
           { text: 'Developers', link: '/developer-guide' },
         ],
@@ -29,6 +32,8 @@ export default defineConfig({
               items: [
                 { text: 'Overview', link: '/' },
                 { text: 'User Guide', link: '/user-guide' },
+                { text: 'Leanstack', link: '/leanstack' },
+                { text: 'Working guide', link: '/leanstack-guide' },
               ],
             },
             {
@@ -65,6 +70,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'คู่มือผู้ใช้', link: '/th/user-guide' },
+          { text: 'ลีนสแต็ก', link: '/th/leanstack' },
           { text: 'สถาปัตยกรรม', link: '/th/architecture' },
           { text: 'นักพัฒนา', link: '/th/developer-guide' },
         ],
@@ -76,6 +82,8 @@ export default defineConfig({
               items: [
                 { text: 'ภาพรวม', link: '/th/' },
                 { text: 'คู่มือผู้ใช้', link: '/th/user-guide' },
+                { text: 'ลีนสแต็ก', link: '/th/leanstack' },
+                { text: 'คู่มือการทำงาน', link: '/th/leanstack-guide' },
               ],
             },
             {

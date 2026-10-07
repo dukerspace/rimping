@@ -23,12 +23,19 @@ bun run build
 | คำสั่ง | คำอธิบาย |
 |--------|----------|
 | `bun run build` | Build ทุกแพ็กเกจผ่าน Turbo |
+| `bun run build:bin` | Compile binary เดี่ยว `dist/rimping` (Bun `--compile`) |
 | `bun run dev` | รัน dev watcher |
 | `bun run typecheck` | ตรวจ type ทุกแพ็กเกจ |
 | `bun run rimping` | รัน CLI โหมดพัฒนา |
 | `bun test` | รันเทสต์ (จากไดเรกทอรีแพ็กเกจ) |
 | `bun run docs:dev` | เริ่ม VitePress docs dev server |
 | `bun run docs:build` | Build เว็บเอกสาร |
+| `bun run docs:preview` | Preview docs ที่ build แล้วในเครื่อง |
+| `bun run benchmark` | รัน benchmark offline ครบ (tier 1, 1b, 3) |
+| `bun run benchmark:tier1` | Benchmark บีบอัด prompt offline |
+| `bun run benchmark:tier1b` | Benchmark บีบอัด shell output |
+| `bun run benchmark:tier3` | Benchmark rubric พฤติกรรม |
+| `bun run benchmark:report` | สร้างรายงาน benchmark จากผลลัพธ์ |
 
 ### โครงสร้างแพ็กเกจ
 
@@ -87,6 +94,8 @@ import {
   initAgentHooks,
   compressShellOutput,
   compressReadContent,
+  compressContent,
+  expandContent,
   resolvePreRead,
   resolvePostRead,
   getCacheStats,
@@ -137,6 +146,16 @@ import { compressShellOutput, resolvePreRead, resolvePostRead } from '@rimping/c
 const shell = compressShellOutput('git status', rawOutput, { maxTokens: 4000 })
 const preRead = resolvePreRead({ path: 'src/foo.ts', limit: undefined }, config)
 const postRead = resolvePostRead({ path: 'src/foo.ts', content: fileText }, config)
+```
+
+### การบีบอัดตามชนิดข้อมูล
+
+เรียก compressor ที่ export ไว้โดยตรงกับ tool payload, ไฟล์ หรือ RAG chunks ได้ `auto` ตรวจจับ JSON และบรรทัด log ที่ซ้ำกัน ส่วน JSON row table และ log runs ขยายกลับได้ด้วย `expandContent` เมื่อต้องการรูปแบบเดิม
+
+```typescript
+const result = compressContent(toolOutput, { type: 'auto' })
+console.log(result.type, result.savingsPercent, result.strategiesApplied)
+const expanded = expandContent(result.text)
 ```
 
 ## เพิ่ม Prompt Skill
@@ -259,6 +278,33 @@ console.log(text)
 
 เปิด `hooks.logStats` เพื่อบันทึกการรันลง `.rimping/hooks.log` สำหรับ debug ผ่าน `rimping hooks log`
 
+## Benchmarks
+
+ไดเรกทอรี `benchmarks/` มี harness เปรียบเทียบ rimping กับเครื่องมือ guideline อื่น (karpathy-skills, ponytail, mattpocock/skills, rtk) ดู `benchmarks/README.md` ใน repo สำหรับ methodology และรายละเอียด tier
+
+| Tier | วัดอะไร | ต้องใช้ API key |
+|------|---------|-----------------|
+| **1** | บีบอัด prompt token แบบ offline | ไม่ |
+| **1b** | บีบอัด shell output | ไม่ |
+| **2** | LOC / เวลา / ความปลอดภัยบน fixture repo | ใช่ (รัน Cursor ด้วยมือ) |
+| **3** | Rubric พฤติกรรม (alignment, surgical, minimal, verify) | ไม่ |
+
+```bash
+# รัน offline เร็ว (ไม่ต้องใช้ API key)
+bun run benchmark
+
+# แยกตาม tier
+bun run benchmark:tier1
+bun run benchmark:tier1b
+bun run benchmark:tier3
+bun run benchmark:report
+
+# เทสต์ harness
+bun run benchmark:test
+```
+
+ผลลัพธ์อยู่ที่ `benchmarks/results/<YYYY-MM-DD>/report.md` (gitignored)
+
 ## การทดสอบ
 
 เทสต์ใช้ Bun test runner วางไว้ใน `packages/core/test/` ให้สะท้อนโครงสร้าง `src/`
@@ -294,7 +340,7 @@ describe('optimizeText', () => {
 
 ## แนวปฏิบัติโค้ด
 
-ปฏิบัติตาม skill `rimping-guidelines` (`.agents/skills/rimping-guidelines/SKILL.md`):
+ปฏิบัติตาม root [`AGENTS.md`](../../AGENTS.md) (Lean Pstack) ดู [Leanstack](./leanstack) สำหรับชุดไฟล์ Skills อยู่ใต้ `.agents/skills/` การติดตั้งสำหรับ repo อื่นยังใช้ `rimping skills init` → `.skills/rimping-guidelines/`
 
 1. **คิดก่อน** — ระบุสมมติฐาน ถามเมื่อไม่ชัด
 2. **โซลูชันขั้นต่ำ** — reuse โค้ดเดิม ไม่ abstract เกินจำเป็น

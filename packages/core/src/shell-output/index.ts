@@ -2,6 +2,7 @@ import { estimateTokens, tokenSavingsPercent } from '../tokenizer.js'
 import { trimToTokenBudget } from './budget-trim.js'
 import { compressGeneric } from './filters/generic.js'
 import { resolveShellFilter } from './registry.js'
+import { compressContent } from '../content-compression/index.js'
 
 export interface ShellCompressOptions {
   maxTokens?: number
@@ -32,6 +33,16 @@ export function compressShellOutput(
   } else {
     text = compressGeneric(raw)
     strategiesApplied.push('generic')
+  }
+
+  const routed = compressContent(raw)
+  if (
+    routed.compressedTokens < estimateTokens(text) ||
+    ((routed.type === 'json' || routed.type === 'logs') && routed.compressedTokens < originalTokens)
+  ) {
+    text = routed.text
+    strategiesApplied.length = 0
+    strategiesApplied.push(...routed.strategiesApplied)
   }
 
   if (options.maxTokens) {

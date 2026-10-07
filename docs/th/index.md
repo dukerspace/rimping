@@ -37,7 +37,7 @@ features:
     details: ดักจับการอ่านไฟล์เพื่อใส่ขีดจำกัดบรรทัดและตัด comment จากไฟล์ใหญ่
   - icon: 🐚
     title: บีบอัด shell
-    details: Rewrite คำสั่ง shell และบีบอัด git status, test output และผล grep
+    details: Rewrite คำสั่ง shell และบีบอัด git status เป็นสรุป branch/จำนวนไฟล์ รวม test output และผล grep
   - icon: 🌐
     title: หลาย provider
     details: adapter สำหรับ OpenAI, Claude, Gemini, Copilot และ mock สำหรับทดสอบ
@@ -77,5 +77,7 @@ Agent hooks (คู่ขนาน):
 | คู่มือ | คำอธิบาย |
 |-------|----------|
 | [คู่มือผู้ใช้](./user-guide) | การติดตั้ง, คำสั่ง, config, skills, hooks |
+| [Leanstack](./leanstack) | ชุดไฟล์: จัดประเภท โหลด skill เดียว ตรวจผล แล้วหยุด |
+| [คู่มือการทำงาน](./leanstack-guide) | วิธีที่ Leanstack จัดประเภท ตรวจผล และหยุด |
 | [สถาปัตยกรรม](./architecture) | ขั้นตอน pipeline, โมดูล, data flow |
 | [คู่มือนักพัฒนา](./developer-guide) | API, ขยาย skills, การทดสอบ |

@@ -27,7 +27,7 @@ export const DEFAULT_SHELL: Required<ShellConfig> = {
 export const DEFAULT_READ: Required<ReadConfig> = {
   enabled: true,
   autoLimit: true,
-  compressOutput: false,
+  compressOutput: true,
   maxLines: 200,
   minSavingsPercent: 10,
   maxTokens: 4000,

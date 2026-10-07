@@ -78,10 +78,10 @@ export const doctorCommand = defineCommand({
     }
 
     if (result.skills.agentSkillInstalled) {
-      consola.log(checkLine('ok', 'rimping-guidelines agent skill installed'))
+      consola.log(checkLine('ok', 'agent guidelines present (AGENTS.md or rimping-guidelines)'))
     } else {
       consola.log(
-        checkLine('fail', 'rimping-guidelines agent skill missing (run: rimping skills init)'),
+        checkLine('fail', 'agent guidelines missing (add AGENTS.md or run: rimping skills init)'),
       )
     }
 

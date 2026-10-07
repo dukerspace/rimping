@@ -1,34 +1,16 @@
 import { defineCommand } from 'citty'
 import { initAgentSkills, resolveInitCwd } from '@rimping/core'
-import { readFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import consola from 'consola'
 import { muted, title } from '../style.js'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-
-async function loadTemplate(): Promise<string> {
-  const templatePath = join(
-    __dirname,
-    '..',
-    '..',
-    'templates',
-    'agents-skills',
-    'rimping-guidelines',
-    'SKILL.md',
-  )
-  return readFile(templatePath, 'utf-8')
-}
-
 export const skillsInitCommand = defineCommand({
   meta: {
-    description: 'Initialize rimping-guidelines agent skill in .agents/skills/',
+    description: 'Copy rimping-guidelines from .skills/ into .agents/skills/',
   },
   args: {
     force: {
       type: 'boolean',
-      description: 'Overwrite existing SKILL.md',
+      description: 'Overwrite existing skill folder',
       default: false,
     },
     dryRun: {
@@ -48,12 +30,10 @@ export const skillsInitCommand = defineCommand({
   },
   async run({ args }) {
     const cwd = resolveInitCwd(args.cwd)
-    const templateContent = await loadTemplate()
     const result = await initAgentSkills({
       cwd,
       force: args.force,
       dryRun: args.dryRun,
-      templateContent,
     })
 
     if (args.json) {

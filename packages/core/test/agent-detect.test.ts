@@ -77,7 +77,7 @@ describe('runDoctor', () => {
     expect(result.config.found).toBe(false)
     expect(result.skills.agentSkillInstalled).toBe(false)
     expect(result.summary.issues.some((i) => i.includes('rimping init'))).toBe(true)
-    expect(result.summary.issues.some((i) => i.includes('skills init'))).toBe(true)
+    expect(result.summary.issues.some((i) => i.includes('agent guidelines missing'))).toBe(true)
   })
 
   it('reports valid config when present', async () => {
@@ -107,6 +107,16 @@ describe('runDoctor', () => {
     expect(result.config.valid).toBe(true)
     expect(result.skills.agentSkillInstalled).toBe(true)
     expect(result.summary.issues).toHaveLength(0)
+  })
+
+  it('accepts root AGENTS.md as agent guidelines', async () => {
+    tempDir = join(tmpdir(), `rimping-doctor-agents-${Date.now()}`)
+    await mkdir(tempDir, { recursive: true })
+    await writeFile(join(tempDir, 'AGENTS.md'), '# Lean Pstack\n')
+
+    const result = await runDoctor(tempDir)
+    expect(result.skills.agentSkillInstalled).toBe(true)
+    expect(result.summary.issues.some((i) => i.includes('agent guidelines missing'))).toBe(false)
   })
 
   it('counts project skills', async () => {

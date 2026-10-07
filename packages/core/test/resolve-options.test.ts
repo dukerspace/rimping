@@ -131,6 +131,7 @@ describe('mergeShellConfig', () => {
 describe('mergeReadConfig', () => {
   it('returns defaults when config is null', () => {
     expect(mergeReadConfig(null)).toEqual(DEFAULT_READ)
+    expect(DEFAULT_READ.compressOutput).toBe(true)
   })
 })
 

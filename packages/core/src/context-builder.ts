@@ -5,6 +5,7 @@ import { estimateTokens } from './tokenizer.js'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { compressReadContent } from './file-read/compress.js'
 
 export interface ContextBuilderOptions {
   prompt: string
@@ -27,9 +28,9 @@ async function readFileContext(files: string[], cwd: string): Promise<string> {
     const path = join(cwd, file)
     if (!existsSync(path)) continue
     const content = await readFile(path, 'utf-8')
-    const lines = content.split('\n')
-    const truncated = lines.length > MAX_FILE_LINES
-    const body = (truncated ? lines.slice(0, MAX_FILE_LINES) : lines).join('\n')
+    const compressed = compressReadContent(content, { maxLines: MAX_FILE_LINES }, file)
+    const truncated = compressed.strategiesApplied.includes('line-cap')
+    const body = compressed.text
     sections.push(`### ${file}${truncated ? ' (truncated)' : ''}\n\`\`\`\n${body}\n\`\`\``)
   }
   return sections.join('\n\n')
