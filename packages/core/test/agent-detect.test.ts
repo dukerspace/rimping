@@ -119,6 +119,16 @@ describe('runDoctor', () => {
     expect(result.summary.issues.some((i) => i.includes('agent guidelines missing'))).toBe(false)
   })
 
+  it('accepts .agents/AGENTS.md as agent guidelines', async () => {
+    tempDir = join(tmpdir(), `rimping-doctor-agents-pack-${Date.now()}`)
+    await mkdir(join(tempDir, '.agents'), { recursive: true })
+    await writeFile(join(tempDir, '.agents/AGENTS.md'), '# Rimping\n')
+
+    const result = await runDoctor(tempDir)
+    expect(result.skills.agentSkillInstalled).toBe(true)
+    expect(result.summary.issues.some((i) => i.includes('agent guidelines missing'))).toBe(false)
+  })
+
   it('counts project skills', async () => {
     tempDir = join(tmpdir(), `rimping-doctor-${Date.now()}`)
     await mkdir(join(tempDir, '.agents/skills/foo'), { recursive: true })

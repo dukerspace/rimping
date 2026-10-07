@@ -13,14 +13,16 @@ Never load the entire `.agents` directory or this pack at once.
 | Class | Load |
 | --- | --- |
 | Tiny | nothing else from the harness |
-| Normal | one primary skill |
-| Hard | `core/router.md`, one primary skill, 2–3 relevant principles |
+| Normal | `core/router.md`, then ranked skill bodies (≤ `max_skills`) |
+| Hard | `core/router.md`, ranked skill bodies (≤ `max_skills`), 2–3 relevant principles |
+
+Discovery reads `core/skills-index.md` and frontmatter only — not every skill body.
 
 ## Load only when needed
 
 - agent definitions
-- architecture skill
-- review skill
+- architecture skill (unless ranked in)
+- review skill (unless ranked in or user asked)
 - additional repository documentation
 - `budgets.yaml` (Hard, or when reporting caps)
 
@@ -51,10 +53,12 @@ Do not read the entire repository unless the task requires it.
 
 ```text
 task
+→ classify
+→ discover / rank skills
+→ load selected skills
 → relevant files
-→ relevant skill
 → relevant principles (Hard only)
-→ implementation
+→ execute
 → verification
 ```
 

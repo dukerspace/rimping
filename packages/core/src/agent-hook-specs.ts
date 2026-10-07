@@ -1,26 +1,11 @@
 import type { AgentId } from './config.js'
 
 /** Agents with scaffoldable hook files (subset of AgentId). */
-export type AgentHookId =
-  | 'cursor'
-  | 'claude'
-  | 'codex'
-  | 'gemini'
-  | 'copilot'
-  | 'windsurf'
-  | 'antigravity'
+export type AgentHookId = 'cursor' | 'claude' | 'codex'
 
-export const AGENT_HOOK_IDS: AgentHookId[] = [
-  'cursor',
-  'claude',
-  'codex',
-  'gemini',
-  'copilot',
-  'windsurf',
-  'antigravity',
-]
+export const AGENT_HOOK_IDS: AgentHookId[] = ['cursor', 'claude', 'codex']
 
-export type AgentHookMergeStrategy = 'replace' | 'merge-hooks' | 'merge-named-hooks'
+export type AgentHookMergeStrategy = 'replace' | 'merge-hooks'
 
 export interface AgentHookSpec {
   id: AgentHookId
@@ -58,35 +43,6 @@ export const AGENT_HOOK_SPECS: AgentHookSpec[] = [
     globalPath: '.codex/hooks.json',
     toolEvent: 'PreToolUse',
     mergeStrategy: 'replace',
-  },
-  {
-    id: 'gemini',
-    name: 'Gemini CLI',
-    projectPath: '.gemini/settings.json',
-    globalPath: '.gemini/settings.json',
-    toolEvent: 'BeforeTool',
-    mergeStrategy: 'merge-hooks',
-  },
-  {
-    id: 'copilot',
-    name: 'GitHub Copilot',
-    projectPath: '.github/hooks/lek-optimize.json',
-    toolEvent: 'preToolUse',
-    mergeStrategy: 'replace',
-  },
-  {
-    id: 'windsurf',
-    name: 'Windsurf',
-    projectPath: '.windsurf/hooks.json',
-    toolEvent: 'pre_tool_use',
-    mergeStrategy: 'replace',
-  },
-  {
-    id: 'antigravity',
-    name: 'Antigravity',
-    projectPath: '.agents/hooks.json',
-    toolEvent: 'PreToolUse',
-    mergeStrategy: 'merge-named-hooks',
   },
 ]
 

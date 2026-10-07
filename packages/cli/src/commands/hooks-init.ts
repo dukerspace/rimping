@@ -14,6 +14,7 @@ import {
   type AgentId,
   type AgentHookId,
   type AgentProbeResult,
+  type AgentsPackInitResult,
   type ConfigInitResult,
   type HooksInitResult,
 } from '@rimping/core'
@@ -113,7 +114,7 @@ function agentNameForPath(path: string): string | undefined {
 
 export function printHooksInitStatus(
   result: HooksProjectInitResult,
-  options: { heading: string; dryRun?: boolean },
+  options: { heading: string; dryRun?: boolean; agentsPack?: AgentsPackInitResult },
 ): void {
   if (options.dryRun) {
     consola.info('Dry run — no files written')
@@ -132,7 +133,11 @@ export function printHooksInitStatus(
 
   printAgentHooksStatus(result)
 
-  if (result.hooks.created.length > 0 || result.hooks.skipped.length > 0) {
+  if (
+    result.hooks.created.length > 0 ||
+    result.hooks.skipped.length > 0 ||
+    result.hooks.removed.length > 0
+  ) {
     consola.log('')
     consola.log(section(result.global ? 'Global Agent Hooks' : 'Project Agent Hooks'))
   }
@@ -151,12 +156,43 @@ export function printHooksInitStatus(
     )
   }
 
+  for (const file of result.hooks.removed) {
+    consola.success(`Removed ${file}`)
+  }
+
+  const agentsPack = options.agentsPack
+  if (
+    agentsPack &&
+    (agentsPack.created.length > 0 ||
+      agentsPack.skipped.length > 0 ||
+      agentsPack.removed.length > 0)
+  ) {
+    consola.log('')
+    consola.log(section('Leanstack (.agents)'))
+    for (const file of agentsPack.created) {
+      consola.success(`Created ${file}`)
+    }
+    for (const file of agentsPack.skipped) {
+      consola.warn(`Skipped ${file} (already exists, use --force to overwrite)`)
+    }
+    for (const file of agentsPack.removed) {
+      consola.success(`Removed ${file}`)
+    }
+  }
+
   if (
     result.config.created.length === 0 &&
     result.config.updated.length === 0 &&
     result.config.skipped.length === 0 &&
     result.hooks.created.length === 0 &&
-    result.hooks.skipped.length === 0
+    result.hooks.skipped.length === 0 &&
+    result.hooks.removed.length === 0 &&
+    !(
+      agentsPack &&
+      (agentsPack.created.length > 0 ||
+        agentsPack.skipped.length > 0 ||
+        agentsPack.removed.length > 0)
+    )
   ) {
     consola.log(muted('Nothing to do.'))
   }
@@ -250,7 +286,7 @@ export const hooksInitCommand = defineCommand({
       type: 'boolean',
       alias: 'g',
       description:
-        'Write global hook files (~/.cursor, ~/.claude, ~/.codex, ~/.gemini) instead of project-local',
+        'Write global hook files (~/.cursor, ~/.claude, ~/.codex) instead of project-local',
       default: false,
     },
     'no-detect': {

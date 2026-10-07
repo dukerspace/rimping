@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { constants, existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -28,7 +28,15 @@ export interface HooksInitOptions {
 export interface HooksInitResult {
   created: string[]
   skipped: string[]
+  removed: string[]
   root: string
+}
+
+export interface RemoveLegacyAgentHooksOptions {
+  /** Install root (project cwd or home when global). */
+  root: string
+  global?: boolean
+  dryRun?: boolean
 }
 
 const PRE_SEND = join('.cursor', 'hooks', 'pre-send.ts')
@@ -69,6 +77,67 @@ function hasRimpingHook(content: string): boolean {
   return commands.some((command) => hookCommandMatches(command, 'hooks'))
 }
 
+function isRimpingCommandEntry(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  if (typeof record.command === 'string' && /\brimping\b/.test(record.command)) return true
+  if (typeof record.bash === 'string' && /\brimping\b/.test(record.bash)) return true
+  return false
+}
+
+function isHooksSectionEmpty(hooks: unknown): boolean {
+  if (!hooks || typeof hooks !== 'object') return true
+  if (Array.isArray(hooks)) return hooks.length === 0
+  return Object.keys(hooks as object).length === 0
+}
+
+/** Remove array/object entries that invoke rimping hook commands. */
+function stripRimpingEntries(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    const next: unknown[] = []
+    for (const entry of value) {
+      if (isRimpingCommandEntry(entry)) continue
+      const stripped = stripRimpingEntries(entry)
+      if (stripped === undefined) continue
+      if (Array.isArray(stripped) && stripped.length === 0) continue
+      if (stripped && typeof stripped === 'object' && !Array.isArray(stripped)) {
+        const rec = stripped as Record<string, unknown>
+        const keys = Object.keys(rec)
+        if (keys.length === 0) continue
+        if (
+          keys.every((key) => key === 'matcher' || key === 'hooks') &&
+          isHooksSectionEmpty(rec.hooks)
+        ) {
+          continue
+        }
+      }
+      next.push(stripped)
+    }
+    return next
+  }
+  if (value && typeof value === 'object') {
+    if (isRimpingCommandEntry(value)) return undefined
+    const record = value as Record<string, unknown>
+    const out: Record<string, unknown> = {}
+    for (const [key, nested] of Object.entries(record)) {
+      const stripped = stripRimpingEntries(nested)
+      if (stripped === undefined) continue
+      if (Array.isArray(stripped) && stripped.length === 0) continue
+      if (
+        stripped &&
+        typeof stripped === 'object' &&
+        !Array.isArray(stripped) &&
+        Object.keys(stripped as object).length === 0
+      ) {
+        continue
+      }
+      out[key] = stripped
+    }
+    return out
+  }
+  return value
+}
+
 function mergeHookArrays(existing: unknown, incoming: unknown): unknown {
   const existingList = Array.isArray(existing) ? [...existing] : []
   const incomingList = Array.isArray(incoming) ? incoming : []
@@ -101,27 +170,6 @@ function mergeHooksSection(
   return merged
 }
 
-function mergeNamedHooksSection(
-  existing: Record<string, unknown>,
-  incoming: Record<string, unknown>,
-): Record<string, unknown> {
-  const merged: Record<string, unknown> = { ...existing }
-  for (const [name, config] of Object.entries(incoming)) {
-    const prev = (merged[name] ?? {}) as Record<string, unknown>
-    const next = config as Record<string, unknown>
-    const events: Record<string, unknown> = { ...prev }
-    for (const [event, entries] of Object.entries(next)) {
-      if (event === 'enabled') {
-        events.enabled = next.enabled
-        continue
-      }
-      events[event] = mergeHookArrays(prev[event], entries)
-    }
-    merged[name] = events
-  }
-  return merged
-}
-
 function mergeTemplate(
   strategy: AgentHookMergeStrategy,
   existingContent: string | undefined,
@@ -149,9 +197,6 @@ function mergeTemplate(
           (template.hooks ?? {}) as Record<string, unknown>,
         ),
       }
-      break
-    case 'merge-named-hooks':
-      merged = mergeNamedHooksSection(existing, template)
       break
     case 'replace':
     default:
@@ -182,11 +227,173 @@ function displayPath(root: string, absolutePath: string, global: boolean): strin
   return absolutePath
 }
 
+async function deleteLegacyFile(
+  absolutePath: string,
+  display: string,
+  dryRun: boolean | undefined,
+  removed: string[],
+): Promise<void> {
+  if (!(await fileExists(absolutePath))) return
+  removed.push(display)
+  if (!dryRun) await rm(absolutePath, { force: true })
+}
+
+async function stripOrDeleteHooksFile(options: {
+  absolutePath: string
+  display: string
+  dryRun?: boolean
+  removed: string[]
+  /** When true, never delete the file — only rewrite stripped content. */
+  keepFile: boolean
+  /** Transform parsed JSON; return undefined to skip (no rimping found). */
+  transform: (parsed: Record<string, unknown>) => { next: Record<string, unknown>; changed: boolean }
+}): Promise<void> {
+  if (!(await fileExists(options.absolutePath))) return
+  const content = await readFile(options.absolutePath, 'utf-8')
+  const parsed = parseJsonObject(content)
+  const { next, changed } = options.transform(parsed)
+  if (!changed) return
+
+  options.removed.push(options.display)
+
+  if (options.dryRun) return
+
+  if (!options.keepFile && Object.keys(next).length === 0) {
+    await rm(options.absolutePath, { force: true })
+    return
+  }
+
+  if (
+    !options.keepFile &&
+    Object.keys(next).length === 1 &&
+    isHooksSectionEmpty(next.hooks)
+  ) {
+    await rm(options.absolutePath, { force: true })
+    return
+  }
+
+  await writeFile(options.absolutePath, JSON.stringify(next, null, 2) + '\n', { mode: 0o644 })
+}
+
+/**
+ * Remove dropped-agent hook scaffolding (Gemini/Copilot/Windsurf/Antigravity).
+ * Always runs (not gated on --force). Honors dryRun.
+ */
+export async function removeLegacyAgentHooks(
+  options: RemoveLegacyAgentHooksOptions,
+): Promise<string[]> {
+  const root = options.root
+  const global = options.global === true
+  const removed: string[] = []
+
+  if (global) {
+    const geminiRel = '.gemini/settings.json'
+    const geminiPath = join(root, geminiRel)
+    await stripOrDeleteHooksFile({
+      absolutePath: geminiPath,
+      display: displayPath(root, geminiPath, true),
+      dryRun: options.dryRun,
+      removed,
+      keepFile: true,
+      transform: (parsed) => {
+        if (!hasRimpingHook(JSON.stringify(parsed))) {
+          return { next: parsed, changed: false }
+        }
+        const stripped = stripRimpingEntries(parsed) as Record<string, unknown>
+        return { next: stripped, changed: true }
+      },
+    })
+    return removed
+  }
+
+  // Copilot: rimping-owned file — delete when it contains rimping hooks.
+  {
+    const rel = '.github/hooks/lek-optimize.json'
+    const absolutePath = join(root, rel)
+    if (await fileExists(absolutePath)) {
+      const content = await readFile(absolutePath, 'utf-8')
+      if (hasRimpingHook(content)) {
+        await deleteLegacyFile(absolutePath, displayPath(root, absolutePath, false), options.dryRun, removed)
+      }
+    }
+  }
+
+  // Windsurf: strip rimping entries; delete if hooks empty afterward.
+  {
+    const rel = '.windsurf/hooks.json'
+    const absolutePath = join(root, rel)
+    await stripOrDeleteHooksFile({
+      absolutePath,
+      display: displayPath(root, absolutePath, false),
+      dryRun: options.dryRun,
+      removed,
+      keepFile: false,
+      transform: (parsed) => {
+        if (!hasRimpingHook(JSON.stringify(parsed))) {
+          return { next: parsed, changed: false }
+        }
+        const stripped = stripRimpingEntries(parsed) as Record<string, unknown>
+        return { next: stripped, changed: true }
+      },
+    })
+  }
+
+  // Antigravity: remove top-level "rimping" key; delete file if empty.
+  {
+    const rel = '.agents/hooks.json'
+    const absolutePath = join(root, rel)
+    await stripOrDeleteHooksFile({
+      absolutePath,
+      display: displayPath(root, absolutePath, false),
+      dryRun: options.dryRun,
+      removed,
+      keepFile: false,
+      transform: (parsed) => {
+        if (!('rimping' in parsed) && !hasRimpingHook(JSON.stringify(parsed))) {
+          return { next: parsed, changed: false }
+        }
+        const next = { ...parsed }
+        delete next.rimping
+        const stripped = stripRimpingEntries(next) as Record<string, unknown>
+        return { next: stripped, changed: true }
+      },
+    })
+  }
+
+  // Gemini: strip rimping entries; never delete the settings file.
+  {
+    const rel = '.gemini/settings.json'
+    const absolutePath = join(root, rel)
+    await stripOrDeleteHooksFile({
+      absolutePath,
+      display: displayPath(root, absolutePath, false),
+      dryRun: options.dryRun,
+      removed,
+      keepFile: true,
+      transform: (parsed) => {
+        if (!hasRimpingHook(JSON.stringify(parsed))) {
+          return { next: parsed, changed: false }
+        }
+        const stripped = stripRimpingEntries(parsed) as Record<string, unknown>
+        return { next: stripped, changed: true }
+      },
+    })
+  }
+
+  return removed
+}
+
 export async function initAgentHooks(options: HooksInitOptions): Promise<HooksInitResult> {
   const root =
     options.root ?? (options.global ? homedir() : (options.cwd ?? process.cwd()))
   const created: string[] = []
   const skipped: string[] = []
+
+  const removed = await removeLegacyAgentHooks({
+    root,
+    global: options.global,
+    dryRun: options.dryRun,
+  })
 
   const agentIds =
     options.agents ??
@@ -232,7 +439,7 @@ export async function initAgentHooks(options: HooksInitOptions): Promise<HooksIn
     created.push(display)
   }
 
-  return { created, skipped, root }
+  return { created, skipped, removed, root }
 }
 
 /** @deprecated Use initAgentHooks — initializes Cursor hooks only. */

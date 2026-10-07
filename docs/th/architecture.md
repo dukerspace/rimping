@@ -72,7 +72,7 @@ flowchart TB
   Provider --> LastRun
 ```
 
-**หมายเหตุ:** Git Diff เป็น sub-step ของ Context Builder ไม่ใช่ stage แยกใน pipeline จริง `rimping init` สร้างไฟล์ hook สำหรับ Cursor, Claude Code, Codex, Gemini, Copilot, Windsurf และ Antigravity Provider Adapter จัดรูปแบบ output สำหรับ LLM provider ไม่ใช่ transport กลับไปยัง agent
+**หมายเหตุ:** Git Diff เป็น sub-step ของ Context Builder ไม่ใช่ stage แยกใน pipeline จริง `rimping init` สร้างไฟล์ hook สำหรับ Cursor, Claude Code และ Codex Provider Adapter จัดรูปแบบ output สำหรับ LLM provider ไม่ใช่ transport กลับไปยัง agent
 
 ## Pipeline การปรับ Prompt
 
@@ -222,7 +222,7 @@ preSend(prompt)
   → คืน prompt ที่ปรับแล้ว (หรือเดิมเมื่อ error — fail open)
 ```
 
-`rimping init` และ `rimping hooks init` คัดลอก template ต่อ agent จาก `packages/cli/templates/agent-hooks/` ไปยังตำแหน่งที่กำหนดใน `agent-hook-specs.ts` กลยุทธ์ merge แตกต่างกันตาม agent (`replace`, `merge-hooks`, `merge-named-hooks`) เพื่อรักษา config hook เดิม
+`rimping init` และ `rimping hooks init` คัดลอก template ต่อ agent จาก `packages/cli/templates/agent-hooks/` ไปยังตำแหน่งที่กำหนดใน `agent-hook-specs.ts` กลยุทธ์ merge แตกต่างกันตาม agent (`replace`, `merge-hooks`) เพื่อรักษา config hook เดิม
 
 ## Shell Output Compression
 

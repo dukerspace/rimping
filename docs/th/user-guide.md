@@ -27,20 +27,21 @@ bun run rimping -- <command>
 
 ## เริ่มต้นใช้งาน
 
-### 1. สร้าง config และ hooks โปรเจกต์
+### 1. สร้าง config, hooks และชุด Leanstack
 
 ```bash
 rimping init
 ```
 
-สร้าง `.rimping/config.json` พร้อมค่าเริ่มต้นและตรวจจับ AI agent อัตโนมัติ จากนั้นสร้างไฟล์ hook สำหรับ agent ที่รองรับ (Cursor, Claude Code, Codex, Gemini, Copilot, Windsurf, Antigravity) รีสตาร์ท agent หลังติดตั้ง
+สร้าง `.rimping/config.json` พร้อมค่าเริ่มต้นและตรวจจับ AI agent อัตโนมัติ สร้างไฟล์ hook สำหรับ agent ที่รองรับ (Cursor, Claude Code, Codex) และคัดลอกชุด Leanstack ไป `.agents/` (`AGENTS.md`, `budgets.yaml`, `core/`, `principles/`, `skills/rimping/`, `agents/`, `adapters/`) ไฟล์ใน `.agents` ที่มีอยู่แล้วจะถูกข้ามเว้นแต่ใช้ `--force` Init แบบ global (`-g`) ไม่ติดตั้ง `.agents/` รีสตาร์ท agent หลังติดตั้ง
 
 | Flag | คำอธิบาย |
 |------|----------|
-| `--force` | เขียนทับ config และไฟล์ hook ที่มีอยู่ |
+| `--force` | เขียนทับ config, ไฟล์ hook และไฟล์ชุด `.agents` ที่มีอยู่ |
 | `--dry-run` | แสดงผลลัพธ์โดยไม่เขียนไฟล์ |
 | `--no-detect` | ข้ามการตรวจจับ agent |
 | `--no-hooks` | สร้างเฉพาะ config — ข้ามการสร้าง hook |
+| `--no-agents` | ข้ามการติดตั้งชุด Leanstack ไป `.agents/` |
 | `-g`, `--global` | เขียน `~/.rimping/config.json` และ hook ระดับ global แทน project-local |
 | `--json` | แสดงผลเป็น JSON |
 | `--cwd <path>` | ไดเรกทอรีเป้าหมาย (ค่าเริ่มต้น: ปัจจุบัน) |
@@ -58,7 +59,9 @@ rimping doctor
 | `--json` | รายงาน doctor แบบ JSON เต็ม |
 | `--cwd <path>` | ไดเรกทอรีเป้าหมาย |
 
-### 3. สร้างแนวทางสำหรับ agent (ไม่บังคับ)
+### 3. สร้างแนวทางสำหรับ agent อย่างเดียว (ไม่บังคับ)
+
+`rimping init` ติดตั้งชุด Leanstack ทั้งก้อนแล้ว (รวม guidelines) ใช้คำสั่งนี้เมื่อโปรเจกต์มีแหล่ง `.skills/rimping-guidelines/` ของตัวเอง:
 
 ```bash
 rimping skills init
@@ -176,10 +179,6 @@ Agent ที่รองรับและตำแหน่งไฟล์ hook
 | Cursor | `.cursor/hooks.json` | `~/.cursor/hooks.json` |
 | Claude Code | `.claude/settings.local.json` | `~/.claude/settings.json` |
 | OpenAI Codex | `.codex/hooks.json` | `~/.codex/hooks.json` |
-| Gemini CLI | `.gemini/settings.json` | `~/.gemini/settings.json` |
-| GitHub Copilot | `.github/hooks/lek-optimize.json` | — |
-| Windsurf | `.windsurf/hooks.json` | — |
-| Antigravity | `.agents/hooks.json` | — |
 
 | Flag | คำอธิบาย |
 |------|----------|
@@ -487,6 +486,6 @@ const { text, optimized, stats } = await preSend('my prompt')
 
 ## Leanstack
 
-Leanstack เป็นชุดไฟล์แยกสำหรับ workflow ของเอเจนต์แบบลีน (จัดประเภท → skill เดียว → ตรวจผล → หยุด) ไม่ใช่ pipeline ของ `rimping optimize` ติดตั้ง slash commands ของ Cursor ด้วย `bun run plugin:install`
+Leanstack เป็นชุดไฟล์แยกสำหรับ workflow ของเอเจนต์แบบลีน (จัดประเภท → ค้นหา/จัดอันดับ skill → ตรวจผล → หยุด) ไม่ใช่ pipeline ของ `rimping optimize` ติดตั้ง slash commands ของ Cursor ด้วย `bun run plugin:install`
 
 รายละเอียดเต็ม → [Leanstack](./leanstack)

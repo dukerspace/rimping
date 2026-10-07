@@ -272,9 +272,17 @@ async function countProjectSkills(cwd: string): Promise<number> {
 }
 
 async function hasAgentSkill(cwd: string): Promise<boolean> {
-  const skillPath = join(cwd, '.agents/skills/rimping-guidelines/SKILL.md')
-  const agentsMd = join(cwd, 'AGENTS.md')
-  return (await pathExists(skillPath)) || (await pathExists(agentsMd))
+  const paths = [
+    join(cwd, '.agents/AGENTS.md'),
+    join(cwd, '.agents/skills/rimping/guidelines/SKILL.md'),
+    join(cwd, '.agents/skills/guidelines/SKILL.md'),
+    join(cwd, '.agents/skills/rimping-guidelines/SKILL.md'),
+    join(cwd, 'AGENTS.md'),
+  ]
+  for (const path of paths) {
+    if (await pathExists(path)) return true
+  }
+  return false
 }
 
 export async function runDoctor(cwd: string): Promise<DoctorResult> {
@@ -309,7 +317,7 @@ export async function runDoctor(cwd: string): Promise<DoctorResult> {
   const lastRun = await loadLastResult()
 
   if (!agentSkillInstalled) {
-    issues.push('agent guidelines missing (add AGENTS.md or run: rimping skills init)')
+    issues.push('agent guidelines missing (add AGENTS.md or run: rimping init)')
   }
 
   const cursorDetected = agents.some((a) => a.id === 'cursor' && a.status === 'detected')

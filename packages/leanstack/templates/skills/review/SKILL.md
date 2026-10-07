@@ -1,11 +1,17 @@
 ---
 name: review
 description: Read-only review of the current diff and nearby behavior.
+triggers:
+  - review
+  - audit
+  - security review
+  - read-only
+  - critique
 ---
 
 # Review
 
-Load this skill alone. Do not modify files.
+May load with other ranked skills (see `core/router.md`). Do not modify files. Prefer this procedure for review; other loaded skills constrain domain checks.
 
 Check, in order:
 

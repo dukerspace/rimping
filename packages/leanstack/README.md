@@ -4,7 +4,7 @@ Lean Pstack file pack: maximum engineering quality per token. Not a CLI.
 
 Source of truth lives under `templates/`. Agents read those files (or a copy under a project's `.agents/`). There is no `leanstack` binary.
 
-Docs → [Leanstack](../../docs/leanstack.md) · [Working guide](../../docs/leanstack-guide.md)
+Docs → [Leanstack](../../docs/leanstack.md)
 
 ## Layout
 
@@ -15,6 +15,7 @@ templates/
 ├── core/
 │   ├── router.md
 │   ├── context.md
+│   ├── skills-index.md
 │   └── stop.md
 ├── principles/          # 7 short principles
 ├── skills/              # implement, debug, refactor, architect, review (+ guidelines)
@@ -26,18 +27,20 @@ templates/
 ## Workflow
 
 ```text
-TASK → classify (rules, not LLM) → 5K / 20K / 50K → one skill → verify → STOP
+TASK → classify → discover → rank → load (≤ max_skills) → execute → verify → STOP
 ```
 
 Progressive context (`core/context.md`):
 
 - Tiny: `AGENTS.md` only.
-- Normal: `AGENTS.md` + one skill body.
-- Hard: `AGENTS.md` + `core/router.md` + named skill + 2–3 principles; escalate only within budget.
+- Normal: `AGENTS.md` + `core/router.md` + ranked skill bodies (≤ `max_skills`).
+- Hard: same as Normal + 2–3 principles; escalate only within budget.
 
-Budgets in `budgets.yaml` are workflow limits (including `max_principles`), not API hard caps.
+Discovery reads `core/skills-index.md` and merges project `.agents/skills/**/SKILL.md` (frontmatter only). Implement is a scored fallback, not an automatic winner.
 
-`skills/guidelines/` (`rimping-guidelines`) is not a classify target and is not copied into the Cursor plugin.
+Budgets in `budgets.yaml` are workflow limits (including `max_skills` / `max_principles`), not API hard caps.
+
+`skills/guidelines/` (`rimping-guidelines`) is not a route target and is not copied into the Cursor plugin.
 
 ## Cursor plugin
 
@@ -54,11 +57,11 @@ bun run plugin:validate
 | Command | What it does |
 |---------|--------------|
 | `/rimping-init` | Inspect repo; copy pack into `.agents/` without overwriting |
-| `/rimping-run` | Classify, load one skill, verify, stop |
-| `/rimping-plan` | Plan only; no edits |
-| `/rimping-debug` | Force debug skill |
-| `/rimping-architect` | Force architect skill |
-| `/rimping-review` | Read-only review |
+| `/rimping-run` | Classify, discover/rank skills, load, verify, stop |
+| `/rimping-plan` | Plan only (includes ranked skills); no edits |
+| `/rimping-debug` | Force debug skill (skip discovery) |
+| `/rimping-architect` | Force architect skill (skip discovery) |
+| `/rimping-review` | Read-only review (skip discovery) |
 | `/rimping-status` | List pack files and budgets |
 | `/rimping-doctor` | Check required files |
 
@@ -71,4 +74,4 @@ The shared design recommends four primary UX commands (`init`, `plan`, `debug`, 
 | Cursor | `AGENTS.md` baseline; do not make `.cursor/rules` source of truth |
 | Claude Code | Prefer `AGENTS.md`; optional `CLAUDE.md` with `@AGENTS.md` only |
 | Codex | Native `AGENTS.md` hierarchy |
-| ChatGPT | Paste `AGENTS.md` + one skill; no second maintained copy |
+| ChatGPT | Paste `AGENTS.md` + ranked skills; no second maintained copy |

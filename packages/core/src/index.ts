@@ -35,8 +35,26 @@ export { compressShellOutput, compressGeneric, compressGitStatus, compressTestOu
 export type { ShellCompressOptions, ShellCompressResult } from './shell-output/index.js'
 export { initAgentSkills, findProjectRoot, findGitRoot, resolveInitCwd } from './agent-skills-init.js'
 export type { AgentSkillsInitOptions, AgentSkillsInitResult } from './agent-skills-init.js'
-export { initAgentHooks, initCursorHooks, checkCursorHooks } from './hooks-init.js'
-export type { HooksInitOptions, HooksInitResult } from './hooks-init.js'
+export {
+  initAgentsPack,
+  resolveAgentsPackSource,
+  mapAgentsPackDestPath,
+  rewriteAgentsPackSkillPaths,
+  AGENTS_PACK_ENTRIES,
+  AGENTS_PACK_SKILLS_NAMESPACE,
+} from './agents-pack-init.js'
+export type { AgentsPackInitOptions, AgentsPackInitResult } from './agents-pack-init.js'
+export {
+  initAgentHooks,
+  initCursorHooks,
+  checkCursorHooks,
+  removeLegacyAgentHooks,
+} from './hooks-init.js'
+export type {
+  HooksInitOptions,
+  HooksInitResult,
+  RemoveLegacyAgentHooksOptions,
+} from './hooks-init.js'
 export {
   AGENT_HOOK_IDS,
   AGENT_HOOK_SPECS,

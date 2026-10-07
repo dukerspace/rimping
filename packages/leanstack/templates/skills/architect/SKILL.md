@@ -1,11 +1,18 @@
 ---
 name: architect
 description: Choose boundaries and an approach for a hard design problem.
+triggers:
+  - architecture
+  - design
+  - boundary
+  - migration
+  - approach
+  - options
 ---
 
 # Architect
 
-Load this skill alone.
+May load with other ranked skills (see `core/router.md`). Prefer this procedure for design decisions; other loaded skills constrain domain steps.
 
 1. Requirements — state the problem, constraints, and non-goals.
 2. Constraints — name what must stay true and what is out of scope.

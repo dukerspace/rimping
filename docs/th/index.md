@@ -77,7 +77,6 @@ Agent hooks (คู่ขนาน):
 | คู่มือ | คำอธิบาย |
 |-------|----------|
 | [คู่มือผู้ใช้](./user-guide) | การติดตั้ง, คำสั่ง, config, skills, hooks |
-| [Leanstack](./leanstack) | ชุดไฟล์: จัดประเภท โหลด skill เดียว ตรวจผล แล้วหยุด |
-| [คู่มือการทำงาน](./leanstack-guide) | วิธีที่ Leanstack จัดประเภท ตรวจผล และหยุด |
+| [Leanstack](./leanstack) | ชุดไฟล์: จัดประเภท ค้นหา/จัดอันดับ skill ตรวจผล แล้วหยุด |
 | [สถาปัตยกรรม](./architecture) | ขั้นตอน pipeline, โมดูล, data flow |
 | [คู่มือนักพัฒนา](./developer-guide) | API, ขยาย skills, การทดสอบ |

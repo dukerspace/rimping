@@ -17,17 +17,25 @@ You are working under the Rimping engineering workflow.
 
 ## Route before reading
 
-Classify with deterministic rules. Do not call a model just to classify. If the user names a mode, use it.
+Classify with deterministic rules. Do not call a model just to classify. If the user names a mode or skill, use it.
+
+**Complexity**
 
 - **Hard** — architecture, migration, security, concurrency, distributed, cross-package, flaky or failed production bug.
 - **Tiny** — typo, comment, one-place rename, formatting, obvious one-line fix.
-- **Debug + Normal** — bug or failure that is not Hard.
-- **Refactor + Normal** — behavior-preserving structure (single-file rename → Tiny).
-- **Implement + Normal** — everything else.
+- **Normal** — everything else that needs a skill (feature, bug, refactor, review).
 
-Tiny: no other harness file. Normal: open one skill body only. Hard, or a tie that changes design: open `core/router.md` plus the named skill. See `core/context.md` for progressive loading.
+**Task-type hint** (not a final skill pick)
 
-Skills: `skills/{implement,debug,refactor,architect,review}/SKILL.md`. Defaults: agents 1, subagents 0, reviewers 0.
+- **Debug** — bug or failure.
+- **Refactor** — behavior-preserving structure (single-file rename → Tiny).
+- **Architect** — boundaries undecided or Hard design.
+- **Review** — user asked for review only.
+- **Implement** — feature or behavior change when no stronger hint fits.
+
+Tiny: no other harness file. Normal and Hard: open `core/router.md`, discover and rank skills (`core/skills-index.md` + project `.agents/skills`), load bodies up to `budgets.yaml` `max_skills`, then execute. Hard also loads 2–3 principles. See `core/context.md`.
+
+Defaults: agents 1, subagents 0, reviewers 0. `guidelines` is never a route target.
 
 ## Budget
 

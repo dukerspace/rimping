@@ -5,14 +5,17 @@ import {
   formatAgentHooksStatus,
   formatConfigStatus,
   getDetectedAgentIds,
+  initAgentsPack,
   initConfig,
   resolveInitCwd,
   resolveInitTarget,
   type AgentId,
   type AgentProbeResult,
+  type AgentsPackInitResult,
   type ConfigInitResult,
 } from '@rimping/core'
 import consola from 'consola'
+import { resolveLeanstackTemplatesRoot } from '../leanstack-templates.js'
 import { formatAgentHookLine, formatKeyValueLine, muted, section, title } from '../style.js'
 import { printHooksInitStatus, runHooksInit, type HooksProjectInitResult } from './hooks-init.js'
 
@@ -25,6 +28,7 @@ function printConfigOnlyStatus(
     agentProbes?: AgentProbeResult[]
     showAgentHooks?: boolean
     global?: boolean
+    agentsPack?: AgentsPackInitResult
   },
 ): void {
   if (options.dryRun) {
@@ -71,21 +75,68 @@ function printConfigOnlyStatus(
     }
   }
 
-  if (result.created.length === 0 && result.updated.length === 0 && result.skipped.length === 0) {
+  const agentsPack = options.agentsPack
+  if (
+    agentsPack &&
+    (agentsPack.created.length > 0 ||
+      agentsPack.skipped.length > 0 ||
+      agentsPack.removed.length > 0)
+  ) {
+    consola.log('')
+    consola.log(section('Leanstack (.agents)'))
+    for (const file of agentsPack.created) {
+      consola.success(`Created ${file}`)
+    }
+    for (const file of agentsPack.skipped) {
+      consola.warn(`Skipped ${file} (already exists, use --force to overwrite)`)
+    }
+    for (const file of agentsPack.removed) {
+      consola.success(`Removed ${file}`)
+    }
+  }
+
+  if (
+    result.created.length === 0 &&
+    result.updated.length === 0 &&
+    result.skipped.length === 0 &&
+    !(
+      agentsPack &&
+      (agentsPack.created.length > 0 ||
+        agentsPack.skipped.length > 0 ||
+        agentsPack.removed.length > 0)
+    )
+  ) {
     consola.log(muted('Nothing to do.'))
   }
 
   consola.log('')
 }
 
+async function maybeInitAgentsPack(options: {
+  cwd: string
+  global: boolean
+  noAgents: boolean
+  force: boolean
+  dryRun: boolean
+}): Promise<AgentsPackInitResult | undefined> {
+  if (options.global || options.noAgents) return undefined
+  return initAgentsPack({
+    cwd: options.cwd,
+    sourceRoot: resolveLeanstackTemplatesRoot(),
+    force: options.force,
+    dryRun: options.dryRun,
+  })
+}
+
 export const initCommand = defineCommand({
   meta: {
-    description: 'Initialize .rimping/config.json and agent hooks (project-local; use -g for global)',
+    description:
+      'Initialize .rimping/config.json, agent hooks, and Leanstack .agents/ pack (project-local; use -g for global)',
   },
   args: {
     force: {
       type: 'boolean',
-      description: 'Overwrite existing config.json and hook files',
+      description: 'Overwrite existing config.json, hook files, and .agents pack files',
       default: false,
     },
     'dry-run': {
@@ -110,6 +161,11 @@ export const initCommand = defineCommand({
     'no-hooks': {
       type: 'boolean',
       description: 'Skip scaffolding agent hooks (config only)',
+      default: false,
+    },
+    'no-agents': {
+      type: 'boolean',
+      description: 'Skip installing Leanstack pack into .agents/',
       default: false,
     },
     global: {
@@ -157,8 +213,24 @@ export const initCommand = defineCommand({
       })
     }
 
+    const agentsPack = await maybeInitAgentsPack({
+      cwd: projectCwd,
+      global,
+      noAgents: args['no-agents'],
+      force: args.force,
+      dryRun: args['dry-run'],
+    })
+
     if (args.json) {
-      console.log(JSON.stringify(hooksResult ?? configResult, null, 2))
+      console.log(
+        JSON.stringify(
+          hooksResult
+            ? { ...hooksResult, agentsPack }
+            : { ...configResult, agentsPack },
+          null,
+          2,
+        ),
+      )
       return
     }
 
@@ -166,6 +238,7 @@ export const initCommand = defineCommand({
       printHooksInitStatus(hooksResult, {
         heading: global ? 'Rimping Init (global)' : 'Rimping Init',
         dryRun: args['dry-run'],
+        agentsPack,
       })
       return
     }
@@ -177,6 +250,7 @@ export const initCommand = defineCommand({
       agentProbes,
       showAgentHooks: global,
       global,
+      agentsPack,
     })
   },
 })

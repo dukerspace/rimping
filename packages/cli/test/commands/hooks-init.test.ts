@@ -19,7 +19,7 @@ describe('runHooksInit', () => {
     expect(result.config.created.some((p) => p.endsWith('.rimping/config.json'))).toBe(true)
     expect(result.hooks.created).toContain('.cursor/hooks.json')
     expect(result.hooks.created).toContain('.claude/settings.local.json')
-    expect(result.hooks.created).toContain('.github/hooks/lek-optimize.json')
+    expect(result.hooks.created).toContain('.codex/hooks.json')
     expect(result.config.config.provider).toBeUndefined()
     expect(result.config.config.agents?.cursor?.enabled).toBe(true)
 

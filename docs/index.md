@@ -77,7 +77,6 @@ Agent hooks (parallel):
 | Guide | Description |
 |-------|-------------|
 | [User Guide](./user-guide) | Installation, commands, config, skills, hooks |
-| [Leanstack](./leanstack) | File pack: classify, one skill, verify, stop |
-| [Working guide](./leanstack-guide) | How Leanstack routes, verifies, and stops |
+| [Leanstack](./leanstack) | File pack: classify, discover/rank skills, verify, stop |
 | [Architecture](./architecture) | Pipeline stages, modules, data flow |
 | [Developer Guide](./developer-guide) | API, extending skills, testing |

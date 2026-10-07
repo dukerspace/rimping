@@ -1,11 +1,20 @@
 ---
 name: debug
 description: Reproduce a failure, find the cause, and fix that cause.
+triggers:
+  - bug
+  - fail
+  - error
+  - broken
+  - crash
+  - reproduce
+  - fix
+  - regression
 ---
 
 # Debug
 
-Load this skill alone.
+May load with other ranked skills (see `core/router.md`). Prefer this procedure when debugging; other loaded skills constrain domain steps.
 
 1. Reproduce — name the failing check or reproduce the failure.
 2. Trace — follow the bad result to the code that creates it.

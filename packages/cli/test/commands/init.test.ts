@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { initCommand } from '../../src/commands/init.js'
@@ -111,6 +111,59 @@ describe('init command', () => {
     expect(result.config.config.agents?.cursor?.hooks).toBeUndefined()
     expect(mergeHooksConfig(result.config.config, 'cursor').optimizeOnSubmit).toBe(true)
     expect(Array.isArray(result.agents)).toBe(true)
+    expect(
+      result.agentsPack?.created.some((path: string) => path.endsWith('.agents/AGENTS.md')),
+    ).toBe(true)
+    expect(result.agentsPack?.created.some((path: string) => path.includes('commands'))).toBe(
+      false,
+    )
+  })
+
+  it('skips leanstack pack with --no-agents', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'rimping-cli-init-no-agents-'))
+    consoleCapture = captureConsole()
+
+    await runCommand(initCommand, {
+      cwd: tempDir,
+      json: true,
+      'dry-run': true,
+      force: false,
+      'no-detect': true,
+      'no-agents': true,
+    })
+
+    const result = JSON.parse(consoleCapture.logs[0]!)
+    expect(result.agentsPack).toBeUndefined()
+  })
+
+  it('dry-run json reports legacy hook and guidelines removals', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'rimping-cli-init-legacy-'))
+    await mkdir(join(tempDir, '.github/hooks'), { recursive: true })
+    await writeFile(
+      join(tempDir, '.github/hooks/lek-optimize.json'),
+      JSON.stringify({
+        hooks: { preToolUse: [{ bash: 'rimping hooks pre-shell' }] },
+      }),
+    )
+    await mkdir(join(tempDir, '.agents/skills/rimping-guidelines'), { recursive: true })
+    await writeFile(join(tempDir, '.agents/skills/rimping-guidelines/SKILL.md'), '# old\n')
+    consoleCapture = captureConsole()
+
+    await runCommand(initCommand, {
+      cwd: tempDir,
+      json: true,
+      'dry-run': true,
+      force: false,
+      'no-detect': true,
+    })
+
+    const result = JSON.parse(consoleCapture.logs[0]!)
+    expect(result.hooks.removed).toContain('.github/hooks/lek-optimize.json')
+    expect(
+      result.agentsPack?.removed.some((path: string) =>
+        path.endsWith(join('.agents', 'skills', 'rimping-guidelines')),
+      ),
+    ).toBe(true)
   })
 })
 

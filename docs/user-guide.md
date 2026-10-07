@@ -27,20 +27,21 @@ bun run rimping -- <command>
 
 ## Getting Started
 
-### 1. Initialize project config and hooks
+### 1. Initialize project config, hooks, and Leanstack pack
 
 ```bash
 rimping init
 ```
 
-Creates `.rimping/config.json` with defaults and auto-detected AI agents, then scaffolds hook files for supported agents (Cursor, Claude Code, Codex, Gemini, Copilot, Windsurf, Antigravity). Restart your agents after setup.
+Creates `.rimping/config.json` with defaults and auto-detected AI agents, scaffolds hook files for supported agents (Cursor, Claude Code, Codex), and copies the Leanstack pack into `.agents/` (`AGENTS.md`, `budgets.yaml`, `core/`, `principles/`, `skills/rimping/`, `agents/`, `adapters/`). Existing `.agents` files are skipped unless `--force`. Global init (`-g`) does not install `.agents/`. Restart your agents after setup.
 
 | Flag | Description |
 |------|-------------|
-| `--force` | Overwrite existing config and hook files |
+| `--force` | Overwrite existing config, hook files, and `.agents` pack files |
 | `--dry-run` | Preview without writing files |
 | `--no-detect` | Skip agent detection |
 | `--no-hooks` | Create config only — skip hook scaffolding |
+| `--no-agents` | Skip installing the Leanstack pack into `.agents/` |
 | `-g`, `--global` | Write `~/.rimping/config.json` and global hook paths instead of project-local |
 | `--json` | Output result as JSON |
 | `--cwd <path>` | Target directory (default: current) |
@@ -58,7 +59,9 @@ Detects installed AI coding agents and validates your Rimping setup: config, age
 | `--json` | Full doctor report as JSON |
 | `--cwd <path>` | Target directory |
 
-### 3. Initialize agent guidelines (optional)
+### 3. Initialize agent guidelines only (optional)
+
+`rimping init` already installs the full Leanstack pack (including guidelines). Use this only when you maintain a project-local `.skills/rimping-guidelines/` source:
 
 ```bash
 rimping skills init
@@ -176,10 +179,6 @@ Supported agents and hook file paths:
 | Cursor | `.cursor/hooks.json` | `~/.cursor/hooks.json` |
 | Claude Code | `.claude/settings.local.json` | `~/.claude/settings.json` |
 | OpenAI Codex | `.codex/hooks.json` | `~/.codex/hooks.json` |
-| Gemini CLI | `.gemini/settings.json` | `~/.gemini/settings.json` |
-| GitHub Copilot | `.github/hooks/lek-optimize.json` | — |
-| Windsurf | `.windsurf/hooks.json` | — |
-| Antigravity | `.agents/hooks.json` | — |
 
 | Flag | Description |
 |------|-------------|
@@ -487,6 +486,6 @@ const { text, optimized, stats } = await preSend('my prompt')
 
 ## Leanstack
 
-Leanstack is a separate file pack for lean agent workflows (classify → one skill → verify → stop). It is not the `rimping optimize` pipeline. Install Cursor slash commands with `bun run plugin:install`.
+Leanstack is a separate file pack for lean agent workflows (classify → discover/rank skills → verify → stop). It is not the `rimping optimize` pipeline. Install Cursor slash commands with `bun run plugin:install`.
 
 Full details → [Leanstack](./leanstack)

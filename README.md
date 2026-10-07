@@ -63,7 +63,7 @@ echo "prompt" | bun run rimping -- optimize --stdin --json
 
 ## Leanstack
 
-Leanstack is a file pack under `packages/leanstack/templates/` (AGENTS.md, budgets, 7 principles, 5 mode skills, agents, adapters). Agents classify with rules, load one skill, verify, and stop. There is no `leanstack` CLI. It does not run the `rimping optimize` pipeline.
+Leanstack is a file pack under `packages/leanstack/templates/` (AGENTS.md, budgets, 7 principles, 5 mode skills, agents, adapters). Agents classify with rules, discover and rank skills (including project skills), load up to budget, verify, and stop. There is no `leanstack` CLI. It does not run the `rimping optimize` pipeline.
 
 Install Cursor slash commands with `bun run plugin:install`. Token hooks stay on the `rimping` CLI.
 
@@ -71,7 +71,7 @@ Full details → [Leanstack](docs/leanstack.md) · [package README](packages/lea
 
 ## Supported hook agents
 
-Cursor, Claude Code, Codex, Gemini CLI, GitHub Copilot, Windsurf, Antigravity
+Cursor, Claude Code, Codex
 
 Run `rimping hooks init` to scaffold hook files for detected agents.
 
@@ -117,7 +117,6 @@ Run `bun run docs:dev` and open http://localhost:5173
 | Overview | [docs/](docs/index.md) | [docs/th/](docs/th/index.md) |
 | User Guide | [user-guide](docs/user-guide.md) | [user-guide](docs/th/user-guide.md) |
 | Leanstack | [leanstack](docs/leanstack.md) | [leanstack](docs/th/leanstack.md) |
-| Working guide | [leanstack-guide](docs/leanstack-guide.md) | [leanstack-guide](docs/th/leanstack-guide.md) |
 | Architecture | [architecture](docs/architecture.md) | [architecture](docs/th/architecture.md) |
 | Developer | [developer-guide](docs/developer-guide.md) | [developer-guide](docs/th/developer-guide.md) |
 

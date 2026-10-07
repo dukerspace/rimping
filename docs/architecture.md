@@ -72,7 +72,7 @@ flowchart TB
   Provider --> LastRun
 ```
 
-**Notes:** Git Diff is a sub-step of Context Builder, not a separate pipeline stage. `rimping init` scaffolds hook files for Cursor, Claude Code, Codex, Gemini, Copilot, Windsurf, and Antigravity. Provider Adapter formats output for LLM providers, not agent transport.
+**Notes:** Git Diff is a sub-step of Context Builder, not a separate pipeline stage. `rimping init` scaffolds hook files for Cursor, Claude Code, and Codex. Provider Adapter formats output for LLM providers, not agent transport.
 
 ## Optimization Pipeline
 
@@ -222,7 +222,7 @@ preSend(prompt)
   → return optimized text (or original on error — fail open)
 ```
 
-`rimping init` and `rimping hooks init` copy per-agent templates from `packages/cli/templates/agent-hooks/` into the paths defined in `agent-hook-specs.ts`. Merge strategies vary by agent (`replace`, `merge-hooks`, `merge-named-hooks`) to preserve existing hook configuration.
+`rimping init` and `rimping hooks init` copy per-agent templates from `packages/cli/templates/agent-hooks/` into the paths defined in `agent-hook-specs.ts`. Merge strategies vary by agent (`replace`, `merge-hooks`) to preserve existing hook configuration.
 
 ## Shell Output Compression
 

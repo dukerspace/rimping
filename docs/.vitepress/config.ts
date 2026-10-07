@@ -33,7 +33,6 @@ export default defineConfig({
                 { text: 'Overview', link: '/' },
                 { text: 'User Guide', link: '/user-guide' },
                 { text: 'Leanstack', link: '/leanstack' },
-                { text: 'Working guide', link: '/leanstack-guide' },
               ],
             },
             {
@@ -83,7 +82,6 @@ export default defineConfig({
                 { text: 'ภาพรวม', link: '/th/' },
                 { text: 'คู่มือผู้ใช้', link: '/th/user-guide' },
                 { text: 'ลีนสแต็ก', link: '/th/leanstack' },
-                { text: 'คู่มือการทำงาน', link: '/th/leanstack-guide' },
               ],
             },
             {
